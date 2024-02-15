@@ -5,10 +5,24 @@ import time
 import numpy as np
 import editdistance
 import zss
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from utils import read_expressions_json, read_expressions_zss
 from bed import BED
 from evaluation import RustEval
+
+
+def ranking_call(diffs, agf1, agf2, name):
+    aggr1 = np.zeros(diffs.shape)
+    for i in range(diffs.shape[1]):
+        aggr1[:, i] = agf1(diffs[:, :i + 1], axis=1)
+    aggr2 = agf2(aggr1, axis=0).tolist()
+    names = [name for i in range(diffs.shape[1])]
+    x = list(range(1, diffs.shape[1]+1))
+    return aggr2, names, x
+
 
 def tree_ed_matrix(ys, ys2=None, same=False):
     if ys2 is None:
@@ -52,6 +66,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     feynman_ids = ["I.6.2", "I.12.1", "I.14.4", "I.25.13", "I.26.2", "I.34.27",
                    "I.39.1", "II.3.24", "II.11.28", "II.27.18", "II.38.14"]
+    fexpr = ["$(\sqrt{2\pi}\cdot y)^{-1} e^{-\\frac{(x/y)^2}{2}}$", "$xy$", "$0.5\, x y^2$", "$x/y$",
+             "$\\arcsin (x\sin{y})$", "$(2\pi)^{-1}xy$", "$1.5\, xy$", "$\\frac{x}{4\pi y^2}$",
+             "$\\frac{1+xy}{1-(0.\overline{3}\, xy)}$", "$xy^2$", "$\\frac{x}{2\cdot(1 + y)}$"]
 
     # Calculate the loss
     if args.calculate_loss:
@@ -206,7 +223,54 @@ if __name__ == '__main__':
             print(f"Optimal distance: time needed: {time_optimal}")
 
     elif args.plot_results:
-        pass
+        if args.aggr1 == "mean":
+            agf1 = np.nanmean
+        elif args.aggr1 == "median":
+            agf1 = np.nanmedian
+        else:
+            agf1 = np.nanmax
+
+        if args.aggr2 == "mean":
+            agf2 = np.nanmean
+        else:
+            agf2 = np.nanmedian
+
+        names = []
+        aggr2 = []
+        xs = []
+
+        diffs = np.load(f"../results/smoothness/precomputed_edit_{args.dataset_num}.npy")
+        n, a, x = ranking_call(diffs, agf1, agf2, "Edit distance")
+        names += n
+        aggr2 += a
+        xs += x
+
+        diffs = np.load(f"../results/smoothness/precomputed_tree_{args.dataset_num}.npy")
+        n, a, x = ranking_call(diffs, agf1, agf2, "Tree-edit distance")
+        names += n
+        aggr2 += a
+        xs += x
+
+        diffs = np.load(f'../results/smoothness/time_optimal_{args.dataset_num}.npy')
+        n, a, x = ranking_call(diffs, agf1, agf2, "Optimal distance")
+        names += n
+        aggr2 += a
+        xs += x
+
+        for i in range(5):
+            diffs = np.load(f"../results/smoothness/precomputed_bed_{args.var_domain_low}-{args.var_domain_high}_{i}_{args.dataset_num}.npy")
+            n, a, x = ranking_call(diffs, agf1, agf2, "BED (Our)")
+            names += n
+            aggr2 += a
+            xs += x
+
+        data = pd.DataFrame(
+            {"Number of neighbours": x, f"{args.aggr2.capitalize()} {args.aggr1} difference (RMSE)": aggr2, "Metric": names})
+        sns_plot = sns.lineplot(x="Number of neighbours", y=f"{args.aggr2.capitalize()} {args.aggr1} difference (RMSE)", hue="Metric",
+                                data=data)
+        sns_plot.axes.set_title(f"Expression ({feynman_ids[args.dataset_num]}): {fexpr[args.dataset_num]}", fontsize=15)
+
+        plt.savefig(f"../results/figures/smoothness_{args.aggr2}_{args.aggr1}_{args.var_domain_low}-{args.var_domain_high}_{args.dataset_num}.png", dpi=400)
 
     else:
         print("Add one of the following arguments: '-calculate_losses', '-calculate_distance',"
