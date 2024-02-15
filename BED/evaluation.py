@@ -24,7 +24,7 @@ class PymooProblem(Problem):
         out["F"] = np.array([error for error in rmse])
 
 
-def DE_pymoo(model, constants, evaluator, verbose=False, **estimation_settings):
+def DE_pymoo(model, constants, evaluator, verbose=False, seed=None, **estimation_settings):
     pymoo_problem = PymooProblem(model, constants, evaluator, estimation_settings)
     strategy = "DE/best/1/bin"
     algorithm = DE(
@@ -47,6 +47,7 @@ def DE_pymoo(model, constants, evaluator, verbose=False, **estimation_settings):
     output = minimize(pymoo_problem,
                       algorithm,
                       termination,
+                      seed=seed,
                       verbose=verbose,
                       save_history=False)
 
@@ -56,7 +57,8 @@ def DE_pymoo(model, constants, evaluator, verbose=False, **estimation_settings):
 class RustEval:
     variable_names = 'ABDEFGHIJKLMNOPQRSTUVWXYZČŠŽ'
 
-    def __init__(self, data, default_value=1e10, no_target=False, verbose=False):
+    def __init__(self, data, default_value=1e10, no_target=False, seed=None, verbose=False):
+        self.seed = seed
         self.data = data
         self.default_value = default_value
         d = data.T
@@ -104,7 +106,7 @@ class RustEval:
         else:
             num_constants = sum([1 for t in expr if t == "C"])
             if num_constants > 0:
-                x, rmse = DE_pymoo(expr, num_constants, self.evaluator)
+                x, rmse = DE_pymoo(expr, num_constants, self, seed=self.seed)
                 return rmse, x
             else:
                 error = self.get_error(expr)
