@@ -1,3 +1,5 @@
+import glob
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -6,7 +8,6 @@ sns.set_theme(font_scale=2, palette="Set2", rc={'figure.figsize': (10, 8), 'text
                                                 'axes.titlesize': 35, "axes.labelsize": 26})
 
 from argparse import ArgumentParser
-import json
 import itertools
 
 from utils import read_expressions_json
@@ -41,7 +42,9 @@ if __name__ == '__main__':
     parser.add_argument("-num_const", type=int)
     parser.add_argument("-num_vars", type=int)
     parser.add_argument("-expr_path", type=str)
-    parser.add_argument("-results_prefix", type=str)
+    parser.add_argument("-figure_path", type=str)
+    parser.add_argument("-stability_type", default="spearman", type=str)
+    parser.add_argument("-random", action="store_true")
     args = parser.parse_args()
 
     if (args.seed is not None and args.num_points is not None and args.num_const is not None
@@ -52,29 +55,24 @@ if __name__ == '__main__':
         dm = bed.calculate_distances()
         np.save(f"../results/consistency/dm_ablation_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npy", dm)
 
-    if args.results_prefix is not None:
-        calculate_stability = True
-        is_random = False
-        num_experiments = 100
-        stability_type = "spearman"
-
-        if stability_type == "std":
+    elif args.figure_path is not None and args.num_vars is not None and args.stability_type is not None:
+        if args.stability_type == "std":
             stability_metric = sd
         else:
             stability_metric = spearman
+
         x = []
         y = []
         value = []
-        # for num_points in [64, 128, 256, 512]:
-        #     for num_const in [15, 20, 25]:
         for num_points in [16, 32, 64, 128, 256, 512]:
             for num_const in [2, 4, 8, 16, 32, 64]:
+                files = glob.glob(f"../results/consistency/dm_ablation_{num_points}_{num_const}_*_2.npy")
                 matrices = []
-                for i in range(num_experiments):
-                    if is_random:
+                for file in files:
+                    if args.random:
                         matrices.append(np.random.random((100, 100)))
                     else:
-                        matrices.append(np.load(f"../data/metric_presaved/ablation/dm_ablation_{num_points}_{num_const}_{i}_{args.num_vars}.npy"))
+                        matrices.append(np.load(file))
                 value.append(stability_metric(matrices))
                 x.append(num_points)
                 y.append(num_const)
@@ -85,5 +83,4 @@ if __name__ == '__main__':
 
         sns.heatmap(sd_mat, annot=True, cmap="coolwarm", linewidth=.5, vmax=1.0, vmin=0.0, fmt=".3g")
         plt.title(f"Number of variables: {args.num_vars}")
-        # plt.show()
-        plt.savefig(f"./metri_comparison/consistency_{args.num_vars}.png")
+        plt.savefig(args.figure_path)

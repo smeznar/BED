@@ -1,5 +1,8 @@
 import json
 
+import zss
+
+
 SYMBOLS = {
     "+": {"symbol": '+', "type": "op", "precedence": 0},
     "-": {"symbol": '-', "type": "op", "precedence": 0},
@@ -124,3 +127,18 @@ def infix_to_postfix(exprs: list[list[str]]) -> list[list[str]]:
 def read_expressions_json(filepath):
     with open(filepath, "r") as file:
         return [Node.from_dict(d).to_postfix() for d in json.load(file)]
+
+
+def expr_to_zss(expr):
+    zexpr = zss.Node(expr.symbol)
+    if expr.left is not None:
+        zexpr.addkid(expr_to_zss(expr.left))
+    if expr.right is not None:
+        zexpr.addkid(expr_to_zss(expr.right))
+
+    return zexpr
+
+
+def read_expressions_zss(filepath):
+    with open(filepath, "r") as file:
+        return [expr_to_zss(Node.from_dict(d)) for d in json.load(file)]
