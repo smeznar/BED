@@ -20,11 +20,11 @@ class PymooProblem(Problem):
         self.estimation_settings = estimation_settings
 
     def _evaluate(self, x, out, *args, **kwargs):
-        rmse = self.evaluator.get_rmse(self.model, x.tolist(), self.default_error, False)
+        rmse = self.evaluator.get_error(self.model, x.tolist())
         out["F"] = np.array([error for error in rmse])
 
 
-def DE_pymoo(model, constants, evaluator, **estimation_settings):
+def DE_pymoo(model, constants, evaluator, verbose=False, **estimation_settings):
     pymoo_problem = PymooProblem(model, constants, evaluator, estimation_settings)
     strategy = "DE/best/1/bin"
     algorithm = DE(
@@ -37,7 +37,7 @@ def DE_pymoo(model, constants, evaluator, **estimation_settings):
     )
 
     termination = DefaultSingleObjectiveTermination(
-        xtol=0.7,
+        xtol=0.1,
         cvtol=1e-6,
         ftol=1e-6,
         period=20,
@@ -47,7 +47,7 @@ def DE_pymoo(model, constants, evaluator, **estimation_settings):
     output = minimize(pymoo_problem,
                       algorithm,
                       termination,
-                      verbose=True,
+                      verbose=verbose,
                       save_history=False)
 
     return output.X, output.F
@@ -77,9 +77,9 @@ class RustEval:
 
     def evaluate(self, expression, constants=None):
         if constants is None:
-            constants = []
+            constants = [[]]
         try:
-            return self.evaluator.eval_expr(expression, constants)
+            return self.evaluator.eval_expr(expression, constants, False)
         except Exception as e:
             if self.verbose:
                 print(e)

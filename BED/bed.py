@@ -63,7 +63,7 @@ class BED:
         seed = self.seed
         cbounds_len = self.const_bounds[1] - self.const_bounds[0]
         ys = []
-        rev = RustEval(points, no_target=True)
+        rev = RustEval(points, no_target=True, verbose=True)
         for expr in expressions:
             seed += 1
             num_constants = expr.count("C")

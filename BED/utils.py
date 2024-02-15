@@ -1,3 +1,4 @@
+import json
 
 SYMBOLS = {
     "+": {"symbol": '+', "type": "op", "precedence": 0},
@@ -37,7 +38,25 @@ class Node:
         elif self.right is None:
             return self.left.to_postfix() + [self.symbol]
         else:
-            return self.left.postfix() + self.right.to_postfix() + [self.symbol]
+            return self.left.to_postfix() + self.right.to_postfix() + [self.symbol]
+
+    def to_dict(self) -> dict:
+        d = {'s': self.symbol}
+        if self.left is not None:
+            d['l'] = self.left.to_dict()
+        if self.right is not None:
+            d['r'] = self.right.to_dict()
+        return d
+
+    @staticmethod
+    def from_dict(d):
+        left = None
+        right = None
+        if "l" in d:
+            left = Node.from_dict(d["l"])
+        if 'r' in d:
+            right = Node.from_dict(d["r"])
+        return Node(d["s"], right=right, left=left)
 
 
 def is_float(element: any) -> bool:
@@ -100,3 +119,8 @@ def infix_to_postfix(exprs: list[list[str]]) -> list[list[str]]:
         tree = tokens_to_tree(expr)
         postfix.append(tree.to_postfix())
     return postfix
+
+
+def read_expressions_json(filepath):
+    with open(filepath, "r") as file:
+        return [Node.from_dict(d).to_postfix() for d in json.load(file)]
