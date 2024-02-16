@@ -1,0 +1,10 @@
+editdistance
+matplotlib
+numpy
+pandas
+pyarrow
+pymoo
+rustimport
+scipy
+seaborn
+zss

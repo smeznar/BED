@@ -9,7 +9,7 @@ from evaluation import RustEval
 
 
 class BED:
-    def __init__(self, expressions, x_bounds, const_bounds, points_sampled=64, consts_sampled=16, expressions2=None,
+    def __init__(self, expressions, x_bounds, const_bounds=(0.2, 5), points_sampled=64, consts_sampled=16, expressions2=None,
                  x=None, infix=False, randomized=False, cutoff_threshold=1e20, default_distance=1e10, seed=None):
         self.points_sampled = points_sampled
         self.consts_sampled = consts_sampled
