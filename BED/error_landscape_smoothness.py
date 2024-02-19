@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
     # Precompute top ranks to accelerate generation of figures (modify or other/specific data sets)
     elif args.precompute_ranks:
-        for j in range(11):
+        for j in range(0, 11):
             print(f"Precomputing data set {j}")
             losses = np.load(f"../results/smoothness/losses_20k_{args.dataset_num}.npy")
             losses[losses > 9e9] = np.nan
@@ -180,7 +180,7 @@ if __name__ == '__main__':
                 print(f"BED: time needed: {time_needed}")
                 dm = dm[finite_losses]
                 dm = dm[:, finite_losses]
-                sdm = dm.argsort(axis=1)[:, args.top_n]
+                sdm = dm.argsort(axis=1)[:, :args.top_n]
                 slm = floss[sdm]
                 diffs = abs(slm - floss[:, None])
                 np.save(f"../results/smoothness/precomputed_bed_{args.var_domain_low}-{args.var_domain_high}_{i}_{j}.npy", diffs)
@@ -191,10 +191,10 @@ if __name__ == '__main__':
             for k in range(20):
                 for l in range(k, 20):
                     small_dm = np.load(
-                        f"../results/smoothness/tree_submatrices/dm_tree_{k * 1000}_{l * 1000}.npy")
+                        f"../results/smoothness/tree_submatrices/dm_tree-edit_{k * 1000}_{l * 1000}.npy")
                     dm[(k * 1000):((k + 1) * 1000), (l * 1000):((l + 1) * 1000)] = small_dm
                     dm[(l * 1000):((l + 1) * 1000), (k * 1000):((k + 1) * 1000)] = small_dm.T
-                    time_needed += np.load(f"../results/smoothness/tree_submatrices/time_tree_{k * 1000}_{l * 1000}.npy")[0]
+                    time_needed += np.load(f"../results/smoothness/tree_submatrices/time_tree-edit_{k * 1000}_{l * 1000}.npy")[0]
             print(f"Tree-edit distance: time needed: {time_needed}")
             dm = dm[finite_losses]
             dm = dm[:, finite_losses]
@@ -206,20 +206,20 @@ if __name__ == '__main__':
             # Edit
             dm = np.load("../results/smoothness/dm_edit.npy")[finite_losses]
             dm = dm[:, finite_losses]
-            sdm = dm.argsort(axis=1)[:, args.top_n]
+            sdm = dm.argsort(axis=1)[:, :args.top_n]
             slm = floss[sdm]
             diffs = abs(slm - floss[:, None])
             np.save(f"../results/smoothness/precomputed_edit_{j}.npy", diffs)
-            print(f"Edit distance: time needed: {np.load('../results/smoothness/time_edit.npy')[0]}")
+            print(f"Edit distance: time needed: {np.load('../results/smoothness/time_edit.npy')[None][0]}")
 
             # Optimal
             dm = np.load(f"../results/smoothness/dm_optimal_{j}.npy")[finite_losses]
             dm = dm[:, finite_losses]
-            sdm = dm.argsort(axis=1)[:, args.top_n]
+            sdm = dm.argsort(axis=1)[:, :args.top_n]
             slm = floss[sdm]
             diffs = abs(slm - floss[:, None])
-            np.save(f"../results/smoothness/dm_optimal_small_{j}.npy", diffs)
-            time_optimal = np.load(f'../results/smoothness/time_optimal_{j}.npy')[0]
+            np.save(f"../results/smoothness/precomputed_optimal_{j}.npy", diffs)
+            time_optimal = np.load(f'../results/smoothness/time_optimal_{j}.npy')[None][0]
             print(f"Optimal distance: time needed: {time_optimal}")
 
     elif args.plot_results:
@@ -251,7 +251,7 @@ if __name__ == '__main__':
         aggr2 += a
         xs += x
 
-        diffs = np.load(f'../results/smoothness/time_optimal_{args.dataset_num}.npy')
+        diffs = np.load(f'../results/smoothness/precomputed_optimal_{args.dataset_num}.npy')
         n, a, x = ranking_call(diffs, agf1, agf2, "Optimal distance")
         names += n
         aggr2 += a

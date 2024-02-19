@@ -66,7 +66,7 @@ if __name__ == '__main__':
         value = []
         for num_points in [16, 32, 64, 128, 256, 512]:
             for num_const in [2, 4, 8, 16, 32, 64]:
-                files = glob.glob(f"../results/consistency/dm_ablation_{num_points}_{num_const}_*_2.npy")
+                files = glob.glob(f"../results/consistency/dm_ablation_{num_points}_{num_const}_*_{args.num_vars}.npy")
                 matrices = []
                 for file in files:
                     if args.random:

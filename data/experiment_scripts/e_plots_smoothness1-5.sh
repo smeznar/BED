@@ -1,66 +1,66 @@
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 mean -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 median -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 mean
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
-python error_landscape_smoothness.py -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 0 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 1 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 2 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 3 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 4 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 5 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 6 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 7 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 8 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 9 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 10 -plot_results -aggr1 mean -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 0 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 1 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 2 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 3 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 4 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 5 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 6 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 7 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 8 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 9 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 10 -plot_results -aggr1 mean -aggr2 median
+python error_landscape_smoothness.py -dataset_num 0 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 1 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 2 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 3 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 4 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 5 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 6 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 7 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 8 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 9 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 10 -plot_results -aggr1 median -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 0 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 1 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 2 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 3 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 4 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 5 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 6 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 7 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 8 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 9 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 10 -plot_results -aggr1 median -aggr2 median
+python error_landscape_smoothness.py -dataset_num 0 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 1 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 2 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 3 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 4 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 5 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 6 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 7 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 8 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 9 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 10 -plot_results -aggr1 max -aggr2 mean
+python error_landscape_smoothness.py -dataset_num 0 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 1 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 2 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 3 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 4 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 5 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 6 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 7 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 8 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 9 -plot_results -aggr1 max -aggr2 median
+python error_landscape_smoothness.py -dataset_num 10 -plot_results -aggr1 max -aggr2 median
