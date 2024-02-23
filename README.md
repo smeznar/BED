@@ -3,6 +3,7 @@
 This repository implements the distance metric from the paper **_Quantifying Behavioural Distance Between Mathematical Expressions_**.
 Additionally, this repository contains reproducible experiments from the paper.
 
+![Banner for the repository](figures/banner.jpg)
 
 ## Quickstart Instructions
 1. Install rust (instructions at [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install))
@@ -38,3 +39,7 @@ BED uses the following hyperparameters and their default values:
 | cutoff_threshold | Threshold for the maximum value an expression can evaluate to. Evaluations with the maximum absolute value higher than this threshold will be ignored                       | float                | 1e20          |
 | default_distance | Distance between two expressions at a point where one expression produces valid evaluations and another invalid ones. Example point -1 for expressions $x$ and $\sqrt{x}$   | float                | 1e10          |
 | seed             | Random seed for reproducible results                                                                                                                                        | int                  | None          |
+
+## Smoothness of the error landscape
+You can evaluate the smoothness of the error landscape using BED/error_landscape_smoothness.py. An overview of the approach for calculating this smoothness can be seen in the image below.
+![Error smoothness overview](figures/error_smoothness.png)
