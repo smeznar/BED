@@ -14,6 +14,10 @@ from bed import BED
 from evaluation import RustEval
 
 
+sns.set_theme(font_scale=0.8, palette="Set2", rc={'figure.figsize': (6, 4), 'text.usetex': True,
+                                                'axes.titlesize': 80, "axes.labelsize": 12})
+
+
 def ranking_call(diffs, agf1, agf2, name):
     aggr1 = np.zeros(diffs.shape)
     for i in range(diffs.shape[1]):
@@ -160,7 +164,7 @@ if __name__ == '__main__':
     elif args.precompute_ranks:
         for j in range(0, 11):
             print(f"Precomputing data set {j}")
-            losses = np.load(f"../results/smoothness/losses_20k_{args.dataset_num}.npy")
+            losses = np.load(f"../results/smoothness/losses_20k_{j}.npy")
             losses[losses > 9e9] = np.nan
             finite_losses = np.isfinite(losses)
             floss = losses[finite_losses]
@@ -240,32 +244,32 @@ if __name__ == '__main__':
         xs = []
 
         diffs = np.load(f"../results/smoothness/precomputed_edit_{args.dataset_num}.npy")
-        n, a, x = ranking_call(diffs, agf1, agf2, "Edit distance")
+        a, n, x = ranking_call(diffs, agf1, agf2, "Edit distance")
         names += n
         aggr2 += a
         xs += x
 
         diffs = np.load(f"../results/smoothness/precomputed_tree_{args.dataset_num}.npy")
-        n, a, x = ranking_call(diffs, agf1, agf2, "Tree-edit distance")
+        a, n, x = ranking_call(diffs, agf1, agf2, "Tree-edit distance")
         names += n
         aggr2 += a
         xs += x
 
         diffs = np.load(f'../results/smoothness/precomputed_optimal_{args.dataset_num}.npy')
-        n, a, x = ranking_call(diffs, agf1, agf2, "Optimal distance")
+        a, n, x = ranking_call(diffs, agf1, agf2, "Optimal distance")
         names += n
         aggr2 += a
         xs += x
 
         for i in range(5):
             diffs = np.load(f"../results/smoothness/precomputed_bed_{args.var_domain_low}-{args.var_domain_high}_{i}_{args.dataset_num}.npy")
-            n, a, x = ranking_call(diffs, agf1, agf2, "BED (Our)")
+            a, n, x = ranking_call(diffs, agf1, agf2, "BED (Our)")
             names += n
             aggr2 += a
             xs += x
 
         data = pd.DataFrame(
-            {"Number of neighbours": x, f"{args.aggr2.capitalize()} {args.aggr1} difference (RMSE)": aggr2, "Metric": names})
+            {"Number of neighbours": xs, f"{args.aggr2.capitalize()} {args.aggr1} difference (RMSE)": aggr2, "Metric": names})
         sns_plot = sns.lineplot(x="Number of neighbours", y=f"{args.aggr2.capitalize()} {args.aggr1} difference (RMSE)", hue="Metric",
                                 data=data)
         sns_plot.axes.set_title(f"Expression ({feynman_ids[args.dataset_num]}): {fexpr[args.dataset_num]}", fontsize=15)
