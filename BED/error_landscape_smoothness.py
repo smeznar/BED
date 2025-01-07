@@ -111,9 +111,9 @@ if __name__ == '__main__':
                               seed=args.seed)
                     dm = bed.calculate_distances()
 
-                np.save(f"../results/smoothness/bed_submatrices/time_bed_{args.var_domain_low}-{args.var_domain_high}"
-                        f"_{args.subset1_low}_{args.subset2_low}_{args.seed}.npy", np.array([time.time() - st]))
-                np.save(f"../results/smoothness/bed_submatrices/dm_bed_{args.var_domain_low}-{args.var_domain_high}"
+                # np.save(f"../results/smoothness/bed_submatrices/time_bed_{args.var_domain_low}-{args.var_domain_high}"
+                #         f"_{args.subset1_low}_{args.subset2_low}_{args.seed}.npy", np.array([time.time() - st]))
+                np.save(f"../results/BEDHIE/dm_bed_{args.var_domain_low}-{args.var_domain_high}"
                         f"_{args.subset1_low}_{args.subset2_low}_{args.seed}.npy", dm)
             else:
                 bed = BED(expressions, [(args.var_domain_low, args.var_domain_high) for i in range(2)],

@@ -6,11 +6,11 @@ from scipy.stats import wasserstein_distance
 
 from utils import infix_to_postfix
 from evaluation import RustEval
-
+from SRToolkit.utils.expression_compiler import expr_to_executable_function
 
 class BED:
     def __init__(self, expressions, x_bounds, const_bounds=(0.2, 5), points_sampled=64, consts_sampled=16, expressions2=None,
-                 x=None, infix=False, randomized=False, cutoff_threshold=1e20, default_distance=1e10, seed=None):
+                 x=None, randomized=False, cutoff_threshold=1e20, default_distance=1e10, seed=None):
         self.points_sampled = points_sampled
         self.consts_sampled = consts_sampled
         self.cutoff_threshold = cutoff_threshold
@@ -22,11 +22,6 @@ class BED:
             self.seed = seed
         np.random.seed(self.seed)
 
-        # Transform expressions to the postfix notation, if they are in the infix notation
-        if infix:
-            expressions = infix_to_postfix(expressions)
-            if expressions2 is not None:
-                expressions2 = infix_to_postfix(expressions2)
         self.expressions = expressions
         self.expressions2 = expressions2
 
@@ -63,31 +58,38 @@ class BED:
         seed = self.seed
         cbounds_len = self.const_bounds[1] - self.const_bounds[0]
         ys = []
-        rev = RustEval(points, no_target=True, verbose=True)
         for expr in expressions:
             seed += 1
             num_constants = expr.count("C")
             if num_constants > 0:
                 lho = LatinHypercube(num_constants, seed=seed)
                 constants = lho.random(self.consts_sampled) * cbounds_len + self.const_bounds[0]
+                exec_expr = expr_to_executable_function(expr)
+                values = []
+                for i in range(constants.shape[0]):
+                    values.append(exec_expr(points, constants[i]))
+                y = np.array(values)
             else:
-                constants = None
-            y = np.array(rev.evaluate(expr, constants)).T.tolist()
-            y = [[v for v in point if np.isfinite(v) and v < self.cutoff_threshold] for point in y]
+                y = expr_to_executable_function(expr)(points, None)[None, :]
+
+            y[(y > self.cutoff_threshold) | (y < -self.cutoff_threshold)] = np.nan
+            # y = [[v for v in point if np.isfinite(v) and v < self.cutoff_threshold] for point in y]
             ys.append(y)
         return ys
 
     def bed(self, y1, y2):
-        assert len(y1) == len(y2)
-
+        y1_mask = np.isnan(y1).all(axis=0)
+        y2_mask = np.isnan(y2).all(axis=0)
         cube_distance = []
-        for i in range(len(y1)):
-            if len(y1[i]) == 0 and len(y2[i]) == 0:
+        for i in range(y1.shape[1]):
+            if y1_mask[i] and y2_mask[i]:
                 cube_distance.append(0.0)
-            elif len(y1[i]) == 0 or len(y2[i]) == 0:
+            elif y1_mask[i] or y2_mask[i]:
                 cube_distance.append(self.default_distance)
             else:
-                cube_distance.append(wasserstein_distance(y1[i], y2[i]))
+                r1 = y1[:, i]
+                r2 = y2[:, i]
+                cube_distance.append(wasserstein_distance(r1[~np.isnan(r1)], r2[~np.isnan(r2)]))
 
         return np.mean(cube_distance)
 

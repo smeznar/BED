@@ -61,6 +61,9 @@ class Node:
             right = Node.from_dict(d["r"])
         return Node(d["s"], right=right, left=left)
 
+    def __len__(self):
+        return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
+
 
 def is_float(element: any) -> bool:
     if element is None:

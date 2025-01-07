@@ -14,7 +14,7 @@ Additionally, this repository contains reproducible experiments from the paper.
 ```
 from bed import BED
 
-expressions = [["2", "A", "*", "B"], ["C", "*", "B", "-", "A"]]
+expressions = [["2", "*", "A", "*", "B"], ["C", "*", "B", "-", "A"]]
 bed = BED(expressions, [(1, 5), (1, 5)], (0.2, 5), infix=True, seed=0)
 print(bed.calculate_distances())
 ```

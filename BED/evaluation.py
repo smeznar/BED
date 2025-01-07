@@ -1,5 +1,4 @@
-import rustimport.import_hook
-from rusteval import Evaluator
+
 
 import numpy as np
 from pymoo.core.problem import Problem
