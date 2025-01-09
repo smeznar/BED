@@ -4,9 +4,8 @@ import numpy as np
 from scipy.stats.qmc import LatinHypercube
 from scipy.stats import wasserstein_distance
 
-from utils import infix_to_postfix
-from evaluation import RustEval
 from SRToolkit.utils.expression_compiler import expr_to_executable_function
+# from SRToolkit.utils........
 
 class BED:
     def __init__(self, expressions, x_bounds, const_bounds=(0.2, 5), points_sampled=64, consts_sampled=16, expressions2=None,
@@ -17,7 +16,7 @@ class BED:
         self.default_distance = default_distance
 
         if seed is None:
-            self.seed = np.random.randint(-10000000, 10000000)
+            self.seed = np.random.randint(0, 2**32-1)
         else:
             self.seed = seed
         np.random.seed(self.seed)
@@ -73,23 +72,22 @@ class BED:
                 y = expr_to_executable_function(expr)(points, None)[None, :]
 
             y[(y > self.cutoff_threshold) | (y < -self.cutoff_threshold)] = np.nan
-            # y = [[v for v in point if np.isfinite(v) and v < self.cutoff_threshold] for point in y]
-            ys.append(y)
+            y_points = []
+            for i in range(y.shape[1]):
+                all_points = y[:, i]
+                y_points.append(all_points[~np.isnan(all_points)])
+            ys.append(y_points)
         return ys
 
     def bed(self, y1, y2):
-        y1_mask = np.isnan(y1).all(axis=0)
-        y2_mask = np.isnan(y2).all(axis=0)
         cube_distance = []
-        for i in range(y1.shape[1]):
-            if y1_mask[i] and y2_mask[i]:
+        for p1, p2 in zip(y1, y2):
+            if len(p1)==0 and len(p2)==0:
                 cube_distance.append(0.0)
-            elif y1_mask[i] or y2_mask[i]:
+            elif len(p1)==0 or len(p2)==0:
                 cube_distance.append(self.default_distance)
             else:
-                r1 = y1[:, i]
-                r2 = y2[:, i]
-                cube_distance.append(wasserstein_distance(r1[~np.isnan(r1)], r2[~np.isnan(r2)]))
+                cube_distance.append(wasserstein_distance(p1, p2))
 
         return np.mean(cube_distance)
 
