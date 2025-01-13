@@ -9,11 +9,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from SRToolkit.utils.expression_compiler import expr_to_executable_function
-from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.evaluation import ParameterEstimator
+from SRToolkit.utils import SymbolLibrary
 
 from utils import read_expressions_json, read_expressions_zss
 from bed import BED
-from ebed import EBED
+
 
 
 sns.set_theme(font_scale=0.8, palette="Set2", rc={'figure.figsize': (6, 4), 'text.usetex': True,
@@ -75,6 +76,7 @@ if __name__ == '__main__':
     fexpr = ["$(\sqrt{2\pi}\cdot y)^{-1} e^{-\\frac{(x/y)^2}{2}}$", "$xy$", "$0.5\, x y^2$", "$x/y$",
              "$\\arcsin (x\sin{y})$", "$(2\pi)^{-1}xy$", "$1.5\, xy$", "$\\frac{x}{4\pi y^2}$",
              "$\\frac{1+xy}{1-(0.\overline{3}\, xy)}$", "$xy^2$", "$\\frac{x}{2\cdot(1 + y)}$"]
+    symbols = SymbolLibrary.default_symbols()
 
     # Calculate the loss
     if args.calculate_loss:
@@ -82,7 +84,7 @@ if __name__ == '__main__':
         losses = np.zeros(len(expressions))
         data = np.load(f"../data/feynman_data/{feynman_ids[args.dataset_num]}.npy")
         ys = np.zeros((len(expressions), data.shape[0]))
-        evaluator = ParameterEstimator(data[:, :-1], data[:, -1])
+        evaluator = ParameterEstimator(data[:, :-1], data[:, -1], symbol_library=symbols)
         for i, expr in enumerate(expressions):
             print(f"[{feynman_ids[args.dataset_num]}] {i} expressions done")
             rmse, constants = evaluator.estimate_parameters(expr)
@@ -98,18 +100,18 @@ if __name__ == '__main__':
         # Use arguments to compute matrices in parallel
         if args.baseline == "BED":
             expressions = read_expressions_json(args.expr_path)
-            st = time.time()
+            # st = time.time()
             if args.subset_len is not None:
                 exprs1 = expressions[args.subset1_low: args.subset1_low + args.subset_len]
                 exprs2 = expressions[args.subset2_low: args.subset2_low + args.subset_len]
 
                 if args.subset1_low == args.subset2_low:
                     bed = BED(exprs1, [(args.var_domain_low, args.var_domain_high) for i in range(2)],
-                              (0.2, 5), points_sampled=64, consts_sampled=16, seed=args.seed)
+                              (0.2, 5), points_sampled=32, consts_sampled=64, seed=args.seed)
                     dm = bed.calculate_distances()
                 else:
                     bed = BED(exprs1, [(args.var_domain_low, args.var_domain_high) for i in range(2)],
-                              (0.2, 5), expressions2=exprs2, points_sampled=64, consts_sampled=16,
+                              (0.2, 5), expressions2=exprs2, points_sampled=32, consts_sampled=64,
                               seed=args.seed)
                     dm = bed.calculate_distances()
 
@@ -119,38 +121,11 @@ if __name__ == '__main__':
                         f"_{args.subset1_low}_{args.subset2_low}_{args.seed}.npy", dm)
             else:
                 bed = BED(expressions, [(args.var_domain_low, args.var_domain_high) for i in range(2)],
-                          (0.2, 5), points_sampled=64, consts_sampled=16, seed=args.seed)
+                          (0.2, 5), points_sampled=32, consts_sampled=64, seed=args.seed)
                 dm = bed.calculate_distances()
-                np.save(f"../results/smoothness/time_bed_.npy", np.array([time.time() - st]))
+                # np.save(f"../results/smoothness/time_bed_.npy", np.array([time.time() - st]))
                 np.save(f"../results/smoothness/dm_bed.npy", dm)
 
-        elif args.baseline == "EBED":
-            expressions = read_expressions_json(args.expr_path)
-            st = time.time()
-            if args.subset_len is not None:
-                exprs1 = expressions[args.subset1_low: args.subset1_low + args.subset_len]
-                exprs2 = expressions[args.subset2_low: args.subset2_low + args.subset_len]
-
-                if args.subset1_low == args.subset2_low:
-                    bed = EBED(exprs1, [(args.var_domain_low, args.var_domain_high) for i in range(2)],
-                              (0.2, 5), points_sampled=64, consts_sampled=16, seed=args.seed)
-                    dm = bed.calculate_distances()
-                else:
-                    bed = EBED(exprs1, [(args.var_domain_low, args.var_domain_high) for i in range(2)],
-                              (0.2, 5), expressions2=exprs2, points_sampled=64, consts_sampled=16,
-                              seed=args.seed)
-                    dm = bed.calculate_distances()
-
-                np.save(f"../results/smoothness/ebed_submatrices/time_ebed_{args.var_domain_low}-{args.var_domain_high}"
-                        f"_{args.subset1_low}_{args.subset2_low}_{args.seed}.npy", np.array([time.time() - st]))
-                np.save(f"../results/BEDHIE/dm_ebed_{args.var_domain_low}-{args.var_domain_high}"
-                        f"_{args.subset1_low}_{args.subset2_low}_{args.seed}.npy", dm)
-            else:
-                bed = EBED(expressions, [(args.var_domain_low, args.var_domain_high) for i in range(2)],
-                          (0.2, 5), points_sampled=64, consts_sampled=16, seed=args.seed)
-                dm = bed.calculate_distances()
-                np.save(f"../results/smoothness/time_ebed_.npy", np.array([time.time() - st]))
-                np.save(f"../results/smoothness/dm_ebed.npy", dm)
 
         # Edit distance
         elif args.baseline == "edit":
@@ -201,43 +176,23 @@ if __name__ == '__main__':
 
             # BED
             for i in range(5):
-                time_needed = 0
+                # time_needed = 0
                 dm = np.zeros((20000, 20000))
                 for k in range(20):
                     for l in range(k, 20):
-                        small_dm = np.load(f"../results/smoothness/bed_submatrices/dm_bed_{args.var_domain_low}-{args.var_domain_high}"
+                        small_dm = np.load(f"../results/BEDHIE/dm_bed_{args.var_domain_low}-{args.var_domain_high}"
                                            f"_{k * 1000}_{l * 1000}_{i}.npy")
                         dm[(k * 1000):((k + 1) * 1000), (l * 1000):((l + 1) * 1000)] = small_dm
                         dm[(l * 1000):((l + 1) * 1000), (k * 1000):((k + 1) * 1000)] = small_dm.T
-                        time_needed += np.load(f"../results/smoothness/bed_submatrices/time_bed_{args.var_domain_low}"
-                                               f"-{args.var_domain_high}_{k*1000}_{l*1000}_{i}.npy")[0]
-                print(f"BED: time needed: {time_needed}")
+                        # time_needed += np.load(f"../results/smoothness/bed_submatrices/time_bed_{args.var_domain_low}"
+                        #                        f"-{args.var_domain_high}_{k*1000}_{l*1000}_{i}.npy")[0]
+                # print(f"BED: time needed: {time_needed}")
                 dm = dm[finite_losses]
                 dm = dm[:, finite_losses]
                 sdm = dm.argsort(axis=1)[:, :args.top_n]
                 slm = floss[sdm]
                 diffs = abs(slm - floss[:, None])
-                np.save(f"../results/smoothness/precomputed_bed_{args.var_domain_low}-{args.var_domain_high}_{i}_{j}.npy", diffs)
-
-            # EBED
-            for i in range(5):
-                time_needed = 0
-                dm = np.zeros((20000, 20000))
-                for k in range(20):
-                    for l in range(k, 20):
-                        small_dm = np.load(f"../results/smoothness/bed_submatrices/dm_ebed_{args.var_domain_low}-{args.var_domain_high}"
-                                           f"_{k * 1000}_{l * 1000}_{i}.npy")
-                        dm[(k * 1000):((k + 1) * 1000), (l * 1000):((l + 1) * 1000)] = small_dm
-                        dm[(l * 1000):((l + 1) * 1000), (k * 1000):((k + 1) * 1000)] = small_dm.T
-                        time_needed += np.load(f"../results/smoothness/ebed_submatrices/time_bed_{args.var_domain_low}"
-                                               f"-{args.var_domain_high}_{k*1000}_{l*1000}_{i}.npy")[0]
-                print(f"EBED: time needed: {time_needed}")
-                dm = dm[finite_losses]
-                dm = dm[:, finite_losses]
-                sdm = dm.argsort(axis=1)[:, :args.top_n]
-                slm = floss[sdm]
-                diffs = abs(slm - floss[:, None])
-                np.save(f"../results/smoothness/precomputed_ebed_{args.var_domain_low}-{args.var_domain_high}_{i}_{j}.npy", diffs)
+                np.save(f"../results/precomputed_bed_{args.var_domain_low}-{args.var_domain_high}_{i}_{j}.npy", diffs)
 
             # Tree
             time_needed = 0
@@ -312,15 +267,8 @@ if __name__ == '__main__':
         xs += x
 
         for i in range(5):
-            diffs = np.load(f"../results/smoothness/precomputed_bed_{args.var_domain_low}-{args.var_domain_high}_{i}_{args.dataset_num}.npy")
+            diffs = np.load(f"../results/precomputed_bed_{args.var_domain_low}-{args.var_domain_high}_{i}_{args.dataset_num}.npy")
             a, n, x = ranking_call(diffs, agf1, agf2, "BED (Our)")
-            names += n
-            aggr2 += a
-            xs += x
-
-        for i in range(5):
-            diffs = np.load(f"../results/smoothness/precomputed_ebed_{args.var_domain_low}-{args.var_domain_high}_{i}_{args.dataset_num}.npy")
-            a, n, x = ranking_call(diffs, agf1, agf2, "EBED (Our)")
             names += n
             aggr2 += a
             xs += x

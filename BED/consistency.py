@@ -12,7 +12,7 @@ import itertools
 
 from utils import read_expressions_json
 from bed import BED
-
+from ebed import EBED
 
 def sd(matrices):
     distances = np.stack(matrices)
@@ -45,15 +45,20 @@ if __name__ == '__main__':
     parser.add_argument("-figure_path", type=str)
     parser.add_argument("-stability_type", default="spearman", type=str)
     parser.add_argument("-random", action="store_true")
+    parser.add_argument("-baseline", default="BED", type=str)
     args = parser.parse_args()
 
     if (args.seed is not None and args.num_points is not None and args.num_const is not None
             and args.expr_path is not None and args.num_vars is not None):
         expressions = read_expressions_json(args.expr_path)
-        bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (0.2, 5),
-                  points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed)
+        if args.baseline == "BED":
+            bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (0.2, 5),
+                    points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed)
+        else:
+            bed = EBED(expressions, [(1, 5) for i in range(args.num_vars)], (0.2, 5),
+                    points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed, randomized=True)
         dm = bed.calculate_distances()
-        np.save(f"../results/consistency/dm_ablation_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npy", dm)
+        np.save(f"../results/consistency_{args.baseline}/dm_ablation_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npy", dm)
 
     elif args.figure_path is not None and args.num_vars is not None and args.stability_type is not None:
         if args.stability_type == "std":
@@ -66,7 +71,7 @@ if __name__ == '__main__':
         value = []
         for num_points in [16, 32, 64, 128, 256, 512]:
             for num_const in [2, 4, 8, 16, 32, 64]:
-                files = glob.glob(f"../results/consistency/dm_ablation_{num_points}_{num_const}_*_{args.num_vars}.npy")
+                files = glob.glob(f"../results/consistency_{args.baseline}/dm_ablation_{num_points}_{num_const}_*_{args.num_vars}.npy")
                 matrices = []
                 for file in files:
                     if args.random:
