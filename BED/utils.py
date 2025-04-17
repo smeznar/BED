@@ -25,8 +25,8 @@ SYMBOLS = {
     "e": {"symbol": 'e', "type": "lit", "precedence": 5},
     "C": {"symbol": 'C', "type": "const", "precedence": 5}
 }
-for char in 'ABDEFGHIJKLMNOPQRSTUVWXYZČŠŽ':
-    SYMBOLS[char] = {"symbol": char, "type": "var", "precedence": 5}
+for char in range(25):
+    SYMBOLS[f"X_{char}"] = {"symbol": f"X_{char}", "type": "var", "precedence": 5}
 
 
 class Node:
