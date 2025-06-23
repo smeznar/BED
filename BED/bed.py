@@ -8,14 +8,19 @@ from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 class BED:
-    def __init__(self, expressions, x_bounds, const_bounds=(0.2, 5), points_sampled=32, consts_sampled=64, expressions2=None,
+    def __init__(self, expressions, x_bounds=None, const_bounds=(0.2, 5), points_sampled=32, consts_sampled=64, expressions2=None,
                  x=None, randomized=False, cutoff_threshold=1e20, default_distance=1e10, symbol_library=None, seed=None):
+        if x_bounds is None and x is None:
+            raise Exception("Either x of x_bounds must not be None.")
         self.points_sampled = points_sampled
         self.consts_sampled = consts_sampled
         self.cutoff_threshold = cutoff_threshold
         self.default_distance = default_distance
         if symbol_library is None:
-            self.symbol_library = SymbolLibrary.default_symbols(num_variables=len(x_bounds))
+            if x_bounds is not None:
+                self.symbol_library = SymbolLibrary.default_symbols(num_variables=len(x_bounds))
+            else:
+                self.symbol_library = SymbolLibrary.default_symbols(num_variables=x.shape[1])
         else:
             self.symbol_library = symbol_library
 

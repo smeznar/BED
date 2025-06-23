@@ -1,4 +1,6 @@
+import copy
 import warnings
+from argparse import ArgumentParser
 
 import numpy as np
 import zss
@@ -30,14 +32,17 @@ def calculate_distances(best_exprs, new_exprs, distance, X):
 
 
 def select_best(distance_matrix, num_selected):
-    avg_distance = np.mean(distance_matrix, axis=0)
+    avg_distance = np.min(distance_matrix, axis=0)
     return np.argsort(avg_distance)[:num_selected]
 
 
 def calculate_error(exprs, evaluator):
     errors = []
     for expr in exprs:
-        errors.append(evaluator.evaluate_expr(expr))
+        try:
+            errors.append(evaluator.evaluate_expr(expr))
+        except Exception as e:
+            errors.append(np.inf)
     return errors
 
 
@@ -48,32 +53,47 @@ def get_n_best(previous, new, errors_previous, errors_new, number_best):
     return [all_exprs[i] for i in indices], [all_errors[i] for i in indices]
 
 
-def heuristic_search(iterations, number_best, number_new, number_selected, expressions, distance, dataset):
-    evaluator = dataset.create_evaluator()
-    errors_by_epoch = []
-
+def heuristic_search(iterations, number_best, number_new, number_selected, expressions, distance, dataset, evaluator):
+    errors_by_iteration = []
+    best_error = np.inf
+    iteration = 0
     new_expressions = expressions[:number_new]
     errors = calculate_error(new_expressions, evaluator)
+    for error in errors:
+        iteration += 1
+        if error < best_error:
+            best_error = error
+            errors_by_iteration.append((best_error, iteration))
+
     best_expressions, best_errors = get_n_best([], new_expressions, [], errors, number_best)
-    errors_by_epoch.append(best_errors[0])
-    # print(f"Iteration {0}, best error: {best_errors[0]}, best expressions: {''.join(best_expressions[0])}")
+
     for i in range(iterations):
         new_expressions = expressions[(i*number_new):((i+1)*number_new)]
         distances = calculate_distances(best_expressions, new_expressions, distance, dataset.X)
         selected_indices = select_best(distances, number_selected)
         selected_expressions = [new_expressions[j] for j in selected_indices]
         errors = calculate_error(selected_expressions, evaluator)
+        for error in errors:
+            iteration += 1
+            if error < best_error:
+                best_error = error
+                errors_by_iteration.append((best_error, iteration))
         best_expressions, best_errors = get_n_best(best_expressions, selected_expressions, best_errors, errors, number_best)
-        errors_by_epoch.append(best_errors[0])
         if best_errors[0] < 1e-9:
-            return errors_by_epoch
+            return errors_by_iteration
         # print(f"Iteration {i+1}, best error: {best_errors[0]}, best expressions: {''.join(best_expressions[0])}")
         # print(best_errors)
 
-    return errors_by_epoch
+    return errors_by_iteration
 
 
 if __name__ == '__main__':
+    parser = ArgumentParser(prog='Simple discovery',
+                            description='A script for testing the smoothness of the error landscape')
+    parser.add_argument("-dataset", type=str)
+    args = parser.parse_args()
+
+
     grammar = """
     E -> E '+' F [0.2]
     E -> E '-' F [0.2]
@@ -89,60 +109,72 @@ if __name__ == '__main__':
     R -> '(' E ')' '^2' [0.1]
     R -> '(' E ')' '^3' [0.1]
     R -> 'sin' '(' E ')' [0.1]
-    V -> 'X_0' [0.3]
-    V -> 'X_1' [0.3]
-    V -> 'X_2' [0.4]
     """
     all_results = {}
-    generator = GeneratorGrammar(grammar)
     number_new = 100
     iterations = 50
-    number_best = 10
+    number_best = 5
     number_selected = 10
     runs = 10
-    dataset_names = ["II.13.23", "II.13.34", "II.15.4", "II.24.17", "II.34.29a", "II.34.2a"]
+    # dataset_names = ['II.34.2', 'II.37.1', 'II.8.7', 'III.15.12', 'III.15.14', 'III.15.27', 'III.17.37', 'III.7.38', 'III.8.54', 'I.12.2', 'I.13.4', 'I.15.3t', 'I.15.3x', 'I.18.14', 'I.18.4', 'I.24.6', 'I.29.16', 'I.32.5', 'I.34.8', 'I.38.12', 'I.39.22', 'I.43.16', 'I.43.43', 'I.50.26', 'I.8.14', 'II.11.27', 'II.13.17', 'II.34.11', 'II.38.3', 'II.6.11', 'II.6.15b', 'III.10.19', 'III.13.18', 'III.21.20', 'III.4.32', 'III.4.33', 'I.12.11', 'I.13.12', 'I.41.16', 'I.44.4', 'II.11.20', 'II.11.3', 'II.2.42', 'II.21.32', 'II.34.29b', 'II.35.18', 'II.35.21', 'III.14.14', 'III.19.51', 'I.11.19', 'I.32.17', 'I.40.1', 'II.11.7', 'II.6.15a', 'III.9.52', 'II.36.38', 'I.9.18']]
     feynman_benchmark = SRBenchmark.feynman("../data/feynman")
-    feynman_benchmark.list_datasets(num_variables=3)
+    print(feynman_benchmark.list_datasets())
+    # print(len(dataset_names))
+    dataset_name = args.dataset
 
-    for dataset_name in dataset_names:
-        print()
-        print("-------------------------------")
-        print(f"             {dataset_name}           ")
-        print("-------------------------------")
-        dataset = feynman_benchmark.create_dataset(dataset_name)
-        results_bed = []
-        results_edit = []
-        results_tree_edit = []
+    print()
+    print("-------------------------------")
+    print(f"             {dataset_name}           ")
+    print("-------------------------------")
+    dataset = feynman_benchmark.create_dataset(dataset_name)
+    evaluator = dataset.create_evaluator()
+    num_variables = dataset.X.shape[1]
 
-        for i in range(runs):
-            np.random.seed(i)
-            expressions = [generator.generate_one()[0] for _ in range((iterations+1)*number_new)]
-            indices = np.random.permutation(len(expressions))
-            expressions = [expressions[j] for j in indices]
-            bed_distance = lambda e1, e2, X: BED(expressions=[e1], expressions2=[e2], x=X, x_bounds=[[],[],[]]).calculate_distances()
-            edit_distance = lambda e1, e2, X: editdistance.distance(e1, e2)
-            tree_edit_distance = lambda e1, e2, X: zss.simple_distance(expr_to_zss(tokens_to_tree(e1)), expr_to_zss(tokens_to_tree(e2)))
-            ys_tree = heuristic_search(iterations, number_best, number_new, number_selected, expressions, tree_edit_distance, dataset)
-            ys_bed = heuristic_search(iterations, number_best, number_new, number_selected, expressions, bed_distance, dataset)
-            ys_edit = heuristic_search(iterations, number_best, number_new, number_selected, expressions, edit_distance, dataset)
+    new_grammar = copy.copy(grammar)
+    for i in range(num_variables):
+        new_grammar += f"\nV -> 'X_{i}' [{1/num_variables}]"
+    generator = GeneratorGrammar(new_grammar)
 
-            results_tree_edit.append(ys_tree[-1])
-            results_edit.append(ys_edit[-1])
-            results_bed.append(ys_bed[-1])
-            print(f"Run {i}, BED: {results_bed[-1]}, Edit: {results_edit[-1]}, Tree: {results_tree_edit[-1]}")
-            # plt.plot(ys_bed)
-            # plt.plot(ys_edit)
-            # plt.show()
+    results_bed = []
+    results_edit = []
+    results_tree_edit = []
 
-        print("Results BED", results_bed)
-        print("Results Edit", results_edit)
-        print("Results Tree", results_tree_edit)
-        print(f"BED: {np.mean(results_bed)}, Edit: {np.mean(results_edit)}, Tree: {np.mean(results_tree_edit)}")
-        all_results[dataset_name] = {"BED": results_bed, "Edit": results_edit, "Tree": results_tree_edit}
+    for i in range(runs):
+        np.random.seed(i)
+        expressions = []
+        expr_set = set()
+        while len(expr_set) < (iterations+1)*number_new:
+            new_expr = generator.generate_one()[0]
+            if "".join(new_expr) in expr_set:
+                continue
+            expressions.append(new_expr)
+            expr_set.add("".join(new_expr))
+        indices = np.random.permutation(len(expressions))
+        expressions = [expressions[j] for j in indices]
+        bed_distance = lambda e1, e2, X: BED(expressions=[e1], expressions2=[e2], x=X, x_bounds=[[],[],[]]).calculate_distances()
+        edit_distance = lambda e1, e2, X: editdistance.distance(e1, e2)
+        tree_edit_distance = lambda e1, e2, X: zss.simple_distance(expr_to_zss(tokens_to_tree(e1)), expr_to_zss(tokens_to_tree(e2)))
+        ys_tree = heuristic_search(iterations, number_best, number_new, number_selected, expressions, tree_edit_distance, dataset, evaluator)
+        ys_bed = heuristic_search(iterations, number_best, number_new, number_selected, expressions, bed_distance, dataset, evaluator)
+        ys_edit = heuristic_search(iterations, number_best, number_new, number_selected, expressions, edit_distance, dataset, evaluator)
+
+        results_tree_edit.append(ys_tree)
+        results_edit.append(ys_edit)
+        results_bed.append(ys_bed)
+        print(f"Run {i}, BED: {ys_bed[-1]}, Edit: {ys_edit[-1]}, Tree: {ys_tree[-1]}")
+        # plt.plot(ys_bed)
+        # plt.plot(ys_edit)
+        # plt.show()
+
+    # print("Results BED", results_bed)
+    # print("Results Edit", results_edit)
+    # print("Results Tree", results_tree_edit)
+    # print(f"BED: {np.mean(results_bed)}, Edit: {np.mean(results_edit)}, Tree: {np.mean(results_tree_edit)}")
+    results = {"BED": results_bed, "Edit": results_edit, "Tree": results_tree_edit}
 
     print(all_results)
-    with open("results_exploration.json", "w") as file:
-        json.dump(all_results, file)
+    with open(f"../results/simple_discovery/results_exploration_{dataset_name}.json", "w") as file:
+        json.dump(results, file)
 
 
 # I.12.4

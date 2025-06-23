@@ -82,7 +82,7 @@ if __name__ == '__main__':
     if args.calculate_loss:
         expressions = read_expressions_json(args.expr_path)
         losses = np.zeros(len(expressions))
-        data = np.load(f"../data/feynman_data/{feynman_ids[args.dataset_num]}.npy")
+        data = np.load(f"../data/feynman_data/{feynman_ids[args.dataset_num]}.npy").astype(np.float64)
         ys = np.zeros((len(expressions), data.shape[0]))
         evaluator = ParameterEstimator(data[:, :-1], data[:, -1], symbol_library=symbols)
         for i, expr in enumerate(expressions):

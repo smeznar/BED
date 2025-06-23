@@ -2,10 +2,14 @@ import numpy.random
 from ProGED.generators import GeneratorGrammar
 from SRToolkit.utils import tokens_to_tree, SymbolLibrary, Node
 import numpy as np
+import matplotlib.pyplot as plt
+import editdistance
+from sklearn.manifold import TSNE, MDS
 
+from bed import BED
 
 def same_tree(expr_tree1: Node, expr_tree2: Node) -> bool:
-    if expr_tree1.symbol == expr_tree2.symbol:
+    if expr_tree1.symbol == expr_tree2.symbol and expr_tree1.symbol != "C":
         if expr_tree1.left is not None and not same_tree(expr_tree1.left, expr_tree2.left):
             return False
         if expr_tree1.right is not None and not same_tree(expr_tree1.right, expr_tree2.right):
@@ -132,8 +136,52 @@ def factor(expr_tree: Node) -> Node:
     return expr_tree
 
 
-def transform_expression(expr_tree: Node, level) -> Node:
-    # print(f"Level: {level}, expression in: {str(expr_tree)}")
+def generate_subtrees(generator, sl):
+    while True:
+        expr_candidate = generator.generate_one(depth_limit=7)[0]
+        if "C" in expr_candidate:
+            continue
+        subtree1 = tokens_to_tree(expr_candidate, sl)
+        if len(subtree1) > 5:
+            continue
+        subtree2 = tokens_to_tree(expr_candidate, sl)
+        return subtree1, subtree2
+
+
+def expand_identity_1(expr_tree: Node, generator: GeneratorGrammar, sl: SymbolLibrary) -> Node:
+    expansion_type = np.random.choice(["no", "cos", "sin", "cos_sin", "div", "log"], p=[0.6, 0.08, 0.08, 0.08, 0.08, 0.08])
+    if expansion_type == "cos":
+        return Node("cos", left=Node("0"))
+    elif expansion_type == "sin":
+        return Node("sin", left=Node("*", Node("pi"), Node("0.5")))
+    elif expansion_type == "cos_sin":
+        subtree1, subtree2 = generate_subtrees(generator, sl)
+        return Node("+", Node("^2", left=Node("cos", left=subtree2)), Node("^2", left=Node("sin", left=subtree1)))
+    elif expansion_type == "log":
+        return Node("log", left=Node("10"))
+    elif expansion_type == "div":
+        subtree1, subtree2 = generate_subtrees(generator, sl)
+        return Node("/", subtree2, subtree1)
+    return expr_tree
+
+
+def expand_identity_0(expr_tree: Node, generator: GeneratorGrammar, sl: SymbolLibrary) -> Node:
+    expansion_type = np.random.choice(["no", "cos", "sin", "sqrt", "sub", "log"], p=[0.6, 0.08, 0.08, 0.08, 0.08, 0.08])
+    if expansion_type == "cos":
+        return Node("cos", left=Node("*", Node("pi"), Node("0.5")))
+    elif expansion_type == "sin":
+        return Node("sin", left=Node("0"))
+    elif expansion_type == "log":
+        return Node("log", left=Node("1"))
+    elif expansion_type == "sqrt":
+        return Node("sqrt", left=Node("0"))
+    elif expansion_type == "sub":
+        subtree1, subtree2 = generate_subtrees(generator, sl)
+        return Node("-", subtree2, subtree1)
+    return expr_tree
+
+
+def transform_expression(expr_tree: Node, generator: GeneratorGrammar, sl: SymbolLibrary) -> Node:
     transformations_per_symbol = {
         "+": [commutativity, combine_log, associativity, sin_cos_identity, factor],
         "*": [commutativity, distributivity_mul, associativity],
@@ -142,43 +190,77 @@ def transform_expression(expr_tree: Node, level) -> Node:
         "sin": [sine_cosine],
         "cos": [sine_cosine],
         "^2": [lambda et: pow_expansion(et, 2)],
-        "^3": [lambda et: pow_expansion(et, 3)]
+        "^3": [lambda et: pow_expansion(et, 3)],
+        "1": [lambda et: expand_identity_1(et, generator, sl)],
+        "0": [lambda et: expand_identity_0(et, generator, sl)]
     }
 
     if expr_tree.left is not None:
-        expr_tree.left = transform_expression(expr_tree.left, level+1)
+        expr_tree.left = transform_expression(expr_tree.left, generator, sl)
     if expr_tree.right is not None:
-        expr_tree.right = transform_expression(expr_tree.right, level+1)
+        expr_tree.right = transform_expression(expr_tree.right, generator, sl)
 
-    if np.random.random() < 0.02:
+    if np.random.random() < 0.04:
         expr_tree = add_identity(expr_tree)
 
     if expr_tree.symbol in transformations_per_symbol:
         if np.random.choice([True, False]):
             fn_ = np.random.choice(transformations_per_symbol[expr_tree.symbol])
-            before = str(expr_tree)
             expr_tree = fn_(expr_tree)
-            # print(f"{str(fn_)}, Before: {before}, After: {str(expr_tree)}")
 
-    # print(f"Level: {level}, expression out: {str(expr_tree)}")
     return expr_tree
 
 
-def generate_equivalent(expr, num_equivalent, symbol_library):
+def generate_equivalent(expr, num_equivalent, symbol_library, generator, length_limit=40):
     equivalent_expressions = [expr]
     eq_strings_set = {''.join(expr)}
     while len(eq_strings_set) < num_equivalent:
+        new_expression = []
         expr_tree = tokens_to_tree(expr, symbol_library)
         for i in range(np.random.randint(4)+1):
-            new_expression = transform_expression(expr_tree, 0).to_list(symbol_library=symbol_library)
+            new_expression = transform_expression(expr_tree, generator, symbol_library).to_list(symbol_library=symbol_library)
             # print("".join(new_expression))
             expr_tree = tokens_to_tree(new_expression, symbol_library)
 
+        if 0 < length_limit < len(new_expression):
+            continue
         if "".join(new_expression) not in eq_strings_set:
             equivalent_expressions.append(new_expression)
             eq_strings_set.add("".join(new_expression))
             # print(len(eq_strings_set))
     return equivalent_expressions
+
+
+def show_TSNE_clusters(distance_matrix, colors, markers, exprs, num):
+    tsne = TSNE(n_components=2, metric='precomputed', init="random")
+    embedding = tsne.fit_transform(distance_matrix)  # shape: (N, 2)
+    # Step 3: Visualize
+    plt.figure(figsize=(8, 6))
+    for i in range(distance_matrix.shape[0]//num):
+        plt.scatter(embedding[(i*num):((i+1)*num), 0], embedding[(i*num):((i+1)*num), 1], color=colors[(i*num)], marker=markers[(i*num)], label=exprs[(i*num)])
+    plt.title("t-SNE with Precomputed Distances")
+    plt.xlabel("Component 1")
+    plt.ylabel("Component 2")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
+
+
+def show_MDS_clusters(distance_matrix, colors, markers, exprs, num):
+    mds = MDS(n_components=2, dissimilarity='precomputed')
+    embedding = mds.fit_transform(distance_matrix)  # shape: (N, 2)
+    # Step 3: Visualize
+    plt.figure(figsize=(8, 6))
+    for i in range(distance_matrix.shape[0]//num):
+        plt.scatter(embedding[(i*num):((i+1)*num), 0], embedding[(i*num):((i+1)*num), 1], color=colors[(i*num)], marker=markers[(i*num)], label=exprs[(i*num)])
+    plt.title("MDS with Precomputed Distances")
+    plt.xlabel("Component 1")
+    plt.ylabel("Component 2")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -195,26 +277,71 @@ if __name__ == '__main__':
     R -> '(' E ')' [0.6]
     R -> 'log' '(' E ')' [0.1]
     R -> 'sqrt' '(' E ')' [0.07]
-    R -> '(' E ')' '**2' [0.07]
-    R -> '(' E ')' '**3' [0.06]
+    R -> '(' E ')' '^2' [0.07]
+    R -> '(' E ')' '^3' [0.06]
     R -> 'sin' '(' E ')' [0.05]
     R -> 'cos' '(' E ')' [0.05]
-    V -> 'X_0' [0.34]
-    V -> 'X_1' [0.33]
-    V -> 'X_2' [0.33]
+    V -> 'X_0' [0.5]
+    V -> 'X_1' [0.5]
     """
-    expressions = [["sin", "(", "X_0", ")", "^2", "+", "cos", "(", "X_0", ")", "^2"],
-                   ["log", "(", "X_0", ")", "+", "log", "(", "X_1", "^2", ")"]]
+    num_equivalent = 10
+
+    expressions = [
+        ("C", "blue", "o"),  # constant
+
+        ("C + C * X_0", "green", "o"),  # linear
+        ("C + C * X_1", "green", "s"),
+        ("C + C * X_0 + C * X_1", "green", "^"),
+
+        ("C + C * X_0 + C * X_0 ^2", "red", "o"),  # polynomial
+        ("C + C * X_1 + C * X_1 ^2", "red", "s"),
+        ("C + C * X_0 ^2", "red", "*"),
+        ("C + C * X_1 ^2", "red", "P"),
+        ("C + C * X_0 + C * X_1 ^2", "red", "v"),
+        ("C + C * X_1 + C * X_0 ^2", "red", "^"),
+        ("C + C * X_0 + C * X_1 + C * X_0 * X_1 + C * X_0 ^2 + C * X_1 ^2", "red", "x"),
+
+        ("sin ( C * X_0 )", "purple", "o"),  # trigonometric
+        ("cos ( C * X_0 )", "purple", "s"),
+        ("sin ( C * X_1 )", "purple", "^"),
+        ("cos ( C * X_1 )", "purple", "v"),
+
+        ("C + sqrt ( X_0 )", "orange", "o"),  # root
+        ("C + sqrt ( X_1 )", "orange", "s"),
+
+        ("log ( C * X_0 ^2 + 1 )", "brown", "o"),  # logarithmic
+        ("log ( C * X_1 ^2 + 1 )", "brown", "s"),
+    ]
+    expressions = [(expression[0].split(" "), expression[1], expression[2]) for expression in expressions]
+    colors = []
+    markers =  []
+    labels = []
     np.random.seed()
     sl = SymbolLibrary.default_symbols(3)
     generator = GeneratorGrammar(grammar)
-    num_exprs = 0
+    all_expressions = []
     for expr in expressions:
-        equivalent = generate_equivalent(expr, 29, sl)
+        equivalent = generate_equivalent(expr[0], num_equivalent, sl, generator)
         print("--------------------------------")
-        print(f"       {''.join(expr)}")
+        print(f"       {''.join(expr[0])}")
         print("--------------------------------")
         for e in equivalent:
             print(''.join(e))
-        num_exprs += 1
+        all_expressions += equivalent
+        colors += [expr[1] for i in range(num_equivalent)]
+        markers += [expr[2] for i in range(num_equivalent)]
+        labels += ["".join(expr[0]) for i in range(num_equivalent)]
 
+    bed = BED(all_expressions, [[1,5],[10,15]]).calculate_distances()
+    bed = np.log10(bed+1)
+    show_TSNE_clusters(bed, colors, markers, labels, num_equivalent)
+    show_MDS_clusters(bed, colors, markers, labels, num_equivalent)
+
+
+    edit = np.zeros((len(all_expressions), len(all_expressions)))
+    for i in range(len(all_expressions)):
+        for j in range(i+1, len(all_expressions)):
+            edit[i, j] = edit[j, i] = editdistance.eval(all_expressions[i], all_expressions[j])
+
+    show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
+    show_MDS_clusters(edit, colors, markers, labels, num_equivalent)
