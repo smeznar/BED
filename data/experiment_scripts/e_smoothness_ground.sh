@@ -1,100 +1,100 @@
-python smoothness_to_true.py -dataset I.6.2a
-python smoothness_to_true.py -dataset I.12.1
-python smoothness_to_true.py -dataset I.12.5
-python smoothness_to_true.py -dataset I.14.4
-python smoothness_to_true.py -dataset I.25.13
-python smoothness_to_true.py -dataset I.26.2
-python smoothness_to_true.py -dataset I.29.4
-python smoothness_to_true.py -dataset I.34.27
-python smoothness_to_true.py -dataset I.39.1
-python smoothness_to_true.py -dataset I.6.2
-python smoothness_to_true.py -dataset II.11.28
-python smoothness_to_true.py -dataset II.27.18
-python smoothness_to_true.py -dataset II.3.24
-python smoothness_to_true.py -dataset II.38.14
-python smoothness_to_true.py -dataset II.8.31
-python smoothness_to_true.py -dataset III.12.43
-python smoothness_to_true.py -dataset I.10.7
-python smoothness_to_true.py -dataset I.12.4
-python smoothness_to_true.py -dataset I.14.3
-python smoothness_to_true.py -dataset I.15.10
-python smoothness_to_true.py -dataset I.16.6
-python smoothness_to_true.py -dataset I.18.12
-python smoothness_to_true.py -dataset I.27.6
-python smoothness_to_true.py -dataset I.30.3
-python smoothness_to_true.py -dataset I.30.5
-python smoothness_to_true.py -dataset I.34.1
-python smoothness_to_true.py -dataset I.34.14
-python smoothness_to_true.py -dataset I.37.4
-python smoothness_to_true.py -dataset I.39.11
-python smoothness_to_true.py -dataset I.43.31
-python smoothness_to_true.py -dataset I.47.23
-python smoothness_to_true.py -dataset I.48.20
-python smoothness_to_true.py -dataset I.6.2b
-python smoothness_to_true.py -dataset II.10.9
-python smoothness_to_true.py -dataset II.13.23
-python smoothness_to_true.py -dataset II.13.34
-python smoothness_to_true.py -dataset II.15.4
-python smoothness_to_true.py -dataset II.15.5
-python smoothness_to_true.py -dataset II.24.17
-python smoothness_to_true.py -dataset II.27.16
-python smoothness_to_true.py -dataset II.34.2
-python smoothness_to_true.py -dataset II.34.29a
-python smoothness_to_true.py -dataset II.34.2a
-python smoothness_to_true.py -dataset II.37.1
-python smoothness_to_true.py -dataset II.4.23
-python smoothness_to_true.py -dataset II.8.7
-python smoothness_to_true.py -dataset III.15.12
-python smoothness_to_true.py -dataset III.15.14
-python smoothness_to_true.py -dataset III.15.27
-python smoothness_to_true.py -dataset III.17.37
-python smoothness_to_true.py -dataset III.7.38
-python smoothness_to_true.py -dataset III.8.54
-python smoothness_to_true.py -dataset I.12.2
-python smoothness_to_true.py -dataset I.13.4
-python smoothness_to_true.py -dataset I.15.3t
-python smoothness_to_true.py -dataset I.15.3x
-python smoothness_to_true.py -dataset I.18.14
-python smoothness_to_true.py -dataset I.18.4
-python smoothness_to_true.py -dataset I.24.6
-python smoothness_to_true.py -dataset I.29.16
-python smoothness_to_true.py -dataset I.32.5
-python smoothness_to_true.py -dataset I.34.8
-python smoothness_to_true.py -dataset I.38.12
-python smoothness_to_true.py -dataset I.39.22
-python smoothness_to_true.py -dataset I.43.16
-python smoothness_to_true.py -dataset I.43.43
-python smoothness_to_true.py -dataset I.50.26
-python smoothness_to_true.py -dataset I.8.14
-python smoothness_to_true.py -dataset II.11.27
-python smoothness_to_true.py -dataset II.13.17
-python smoothness_to_true.py -dataset II.34.11
-python smoothness_to_true.py -dataset II.38.3
-python smoothness_to_true.py -dataset II.6.11
-python smoothness_to_true.py -dataset II.6.15b
-python smoothness_to_true.py -dataset III.10.19
-python smoothness_to_true.py -dataset III.13.18
-python smoothness_to_true.py -dataset III.21.20
-python smoothness_to_true.py -dataset III.4.32
-python smoothness_to_true.py -dataset III.4.33
-python smoothness_to_true.py -dataset I.12.11
-python smoothness_to_true.py -dataset I.13.12
-python smoothness_to_true.py -dataset I.41.16
-python smoothness_to_true.py -dataset I.44.4
-python smoothness_to_true.py -dataset II.11.20
-python smoothness_to_true.py -dataset II.11.3
-python smoothness_to_true.py -dataset II.2.42
-python smoothness_to_true.py -dataset II.21.32
-python smoothness_to_true.py -dataset II.34.29b
-python smoothness_to_true.py -dataset II.35.18
-python smoothness_to_true.py -dataset II.35.21
-python smoothness_to_true.py -dataset III.14.14
-python smoothness_to_true.py -dataset III.19.51
-python smoothness_to_true.py -dataset I.11.19
-python smoothness_to_true.py -dataset I.32.17
-python smoothness_to_true.py -dataset I.40.1
-python smoothness_to_true.py -dataset II.11.7
-python smoothness_to_true.py -dataset II.6.15a
-python smoothness_to_true.py -dataset III.9.52
-python smoothness_to_true.py -dataset II.36.38
-python smoothness_to_true.py -dataset I.9.18
+python smoothness_to_true.py -compute -dataset I.6.2a
+python smoothness_to_true.py -compute -dataset I.12.1
+python smoothness_to_true.py -compute -dataset I.12.5
+python smoothness_to_true.py -compute -dataset I.14.4
+python smoothness_to_true.py -compute -dataset I.25.13
+python smoothness_to_true.py -compute -dataset I.26.2
+python smoothness_to_true.py -compute -dataset I.29.4
+python smoothness_to_true.py -compute -dataset I.34.27
+python smoothness_to_true.py -compute -dataset I.39.1
+python smoothness_to_true.py -compute -dataset I.6.2
+python smoothness_to_true.py -compute -dataset II.11.28
+python smoothness_to_true.py -compute -dataset II.27.18
+python smoothness_to_true.py -compute -dataset II.3.24
+python smoothness_to_true.py -compute -dataset II.38.14
+python smoothness_to_true.py -compute -dataset II.8.31
+python smoothness_to_true.py -compute -dataset III.12.43
+python smoothness_to_true.py -compute -dataset I.10.7
+python smoothness_to_true.py -compute -dataset I.12.4
+python smoothness_to_true.py -compute -dataset I.14.3
+python smoothness_to_true.py -compute -dataset I.15.10
+python smoothness_to_true.py -compute -dataset I.16.6
+python smoothness_to_true.py -compute -dataset I.18.12
+python smoothness_to_true.py -compute -dataset I.27.6
+python smoothness_to_true.py -compute -dataset I.30.3
+python smoothness_to_true.py -compute -dataset I.30.5
+python smoothness_to_true.py -compute -dataset I.34.1
+python smoothness_to_true.py -compute -dataset I.34.14
+python smoothness_to_true.py -compute -dataset I.37.4
+python smoothness_to_true.py -compute -dataset I.39.11
+python smoothness_to_true.py -compute -dataset I.43.31
+python smoothness_to_true.py -compute -dataset I.47.23
+python smoothness_to_true.py -compute -dataset I.48.20
+python smoothness_to_true.py -compute -dataset I.6.2b
+python smoothness_to_true.py -compute -dataset II.10.9
+python smoothness_to_true.py -compute -dataset II.13.23
+python smoothness_to_true.py -compute -dataset II.13.34
+python smoothness_to_true.py -compute -dataset II.15.4
+python smoothness_to_true.py -compute -dataset II.15.5
+python smoothness_to_true.py -compute -dataset II.24.17
+python smoothness_to_true.py -compute -dataset II.27.16
+python smoothness_to_true.py -compute -dataset II.34.2
+python smoothness_to_true.py -compute -dataset II.34.29a
+python smoothness_to_true.py -compute -dataset II.34.2a
+python smoothness_to_true.py -compute -dataset II.37.1
+python smoothness_to_true.py -compute -dataset II.4.23
+python smoothness_to_true.py -compute -dataset II.8.7
+python smoothness_to_true.py -compute -dataset III.15.12
+python smoothness_to_true.py -compute -dataset III.15.14
+python smoothness_to_true.py -compute -dataset III.15.27
+python smoothness_to_true.py -compute -dataset III.17.37
+python smoothness_to_true.py -compute -dataset III.7.38
+python smoothness_to_true.py -compute -dataset III.8.54
+python smoothness_to_true.py -compute -dataset I.12.2
+python smoothness_to_true.py -compute -dataset I.13.4
+python smoothness_to_true.py -compute -dataset I.15.3t
+python smoothness_to_true.py -compute -dataset I.15.3x
+python smoothness_to_true.py -compute -dataset I.18.14
+python smoothness_to_true.py -compute -dataset I.18.4
+python smoothness_to_true.py -compute -dataset I.24.6
+python smoothness_to_true.py -compute -dataset I.29.16
+python smoothness_to_true.py -compute -dataset I.32.5
+python smoothness_to_true.py -compute -dataset I.34.8
+python smoothness_to_true.py -compute -dataset I.38.12
+python smoothness_to_true.py -compute -dataset I.39.22
+python smoothness_to_true.py -compute -dataset I.43.16
+python smoothness_to_true.py -compute -dataset I.43.43
+python smoothness_to_true.py -compute -dataset I.50.26
+python smoothness_to_true.py -compute -dataset I.8.14
+python smoothness_to_true.py -compute -dataset II.11.27
+python smoothness_to_true.py -compute -dataset II.13.17
+python smoothness_to_true.py -compute -dataset II.34.11
+python smoothness_to_true.py -compute -dataset II.38.3
+python smoothness_to_true.py -compute -dataset II.6.11
+python smoothness_to_true.py -compute -dataset II.6.15b
+python smoothness_to_true.py -compute -dataset III.10.19
+python smoothness_to_true.py -compute -dataset III.13.18
+python smoothness_to_true.py -compute -dataset III.21.20
+python smoothness_to_true.py -compute -dataset III.4.32
+python smoothness_to_true.py -compute -dataset III.4.33
+python smoothness_to_true.py -compute -dataset I.12.11
+python smoothness_to_true.py -compute -dataset I.13.12
+python smoothness_to_true.py -compute -dataset I.41.16
+python smoothness_to_true.py -compute -dataset I.44.4
+python smoothness_to_true.py -compute -dataset II.11.20
+python smoothness_to_true.py -compute -dataset II.11.3
+python smoothness_to_true.py -compute -dataset II.2.42
+python smoothness_to_true.py -compute -dataset II.21.32
+python smoothness_to_true.py -compute -dataset II.34.29b
+python smoothness_to_true.py -compute -dataset II.35.18
+python smoothness_to_true.py -compute -dataset II.35.21
+python smoothness_to_true.py -compute -dataset III.14.14
+python smoothness_to_true.py -compute -dataset III.19.51
+python smoothness_to_true.py -compute -dataset I.11.19
+python smoothness_to_true.py -compute -dataset I.32.17
+python smoothness_to_true.py -compute -dataset I.40.1
+python smoothness_to_true.py -compute -dataset II.11.7
+python smoothness_to_true.py -compute -dataset II.6.15a
+python smoothness_to_true.py -compute -dataset III.9.52
+python smoothness_to_true.py -compute -dataset II.36.38
+python smoothness_to_true.py -compute -dataset I.9.18

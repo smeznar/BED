@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import editdistance
 from sklearn.cluster import AgglomerativeClustering
-from sklearn.metrics import adjusted_rand_score, silhouette_score
+from sklearn.metrics import adjusted_rand_score, silhouette_score, v_measure_score, fowlkes_mallows_score
 from sklearn.manifold import TSNE, MDS
 import time
 import zss
@@ -364,8 +364,11 @@ if __name__ == '__main__':
     print(time.time() - t_start)
     clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
     score = adjusted_rand_score(clusters, np.array(ground_truth))
-    print("ARI NBED", score)
-    print("Silhouette NBED", silhouette_score(bed, clusters, metric="precomputed"))
+    print("NBED")
+    print("ARI: ", score)
+    print("Silhouette: ", silhouette_score(bed, clusters, metric="precomputed"))
+    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
+    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
 
     # bed = np.log10(bed+1)
     # show_TSNE_clusters(bed, colors, markers, labels, num_equivalent)
@@ -374,16 +377,25 @@ if __name__ == '__main__':
     t_start = time.time()
     bed = BED(all_expressions, [[1,5],[1,5]], normalize=False).calculate_distances()
     bed = np.log10(bed+1)
-    # print(time.time() - t_start)
-    # clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
-    # print("ARI BED", adjusted_rand_score(clusters, np.array(ground_truth)))
-    # print("Silhouette BED", silhouette_score(bed, clusters, metric="precomputed"))
-    bed = MDS(dissimilarity="precomputed").fit_transform(bed)
     print(time.time() - t_start)
+    clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
+    print()
+    print("BED")
+    print("ARI: ", adjusted_rand_score(clusters, np.array(ground_truth)))
+    print("Silhouette: ", silhouette_score(bed, clusters, metric="precomputed"))
+    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
+    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
+
+
+    print()
+    print("BED + MDS")
+    bed = MDS(dissimilarity="precomputed").fit_transform(bed)
     clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(bed)
     np.fill_diagonal(bed, 0)
     print("ARI BED", adjusted_rand_score(clusters, np.array(ground_truth)))
     print("Silhouette BED", silhouette_score(bed, clusters))
+    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
+    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
 
     # show_TSNE_clusters(bed, colors, markers, labels, num_equivalent)
     # show_MDS_clusters(bed, colors, markers, labels, num_equivalent)
@@ -395,8 +407,12 @@ if __name__ == '__main__':
 
     clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(edit)
     score = adjusted_rand_score(clusters, np.array(ground_truth))
-    print("ARI Edit", score)
-    print("Silhouette Edit", silhouette_score(edit, clusters, metric="precomputed"))
+    print()
+    print("Edit distance")
+    print("ARI: ", score)
+    print("Silhouette: ", silhouette_score(edit, clusters, metric="precomputed"))
+    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
+    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
     # show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
     # show_MDS_clusters(edit, colors, markers, labels, num_equivalent)
 
@@ -410,7 +426,11 @@ if __name__ == '__main__':
     clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(
         tree_edit)
     score = adjusted_rand_score(clusters, np.array(ground_truth))
-    print("ARI Tree-edit", score)
-    print("Silhouette Tree-edit", silhouette_score(tree_edit, clusters, metric="precomputed"))
+    print()
+    print("Tree edit distance")
+    print("ARI: ", score)
+    print("Silhouette: ", silhouette_score(tree_edit, clusters, metric="precomputed"))
+    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
+    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
     # show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
     # show_MDS_clusters(edit, colors, markers, labels, num_equivalent)
