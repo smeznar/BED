@@ -257,13 +257,13 @@ def show_TSNE_clusters(distance_matrix, colors, markers, exprs, num, precomputed
     plt.show()
 
 
-def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, precomputed=True):
+def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, baseline, precomputed=True):
     # High-quality, publication-ready style
     plt.style.use('seaborn-v0_8-whitegrid')
     mpl.rcParams.update({
         'font.size': 14,
         'axes.labelsize': 18,
-        'axes.titlesize': 20,
+        'axes.titlesize': 15,
         'xtick.labelsize': 14,
         'ytick.labelsize': 14,
         'legend.fontsize': 12,
@@ -293,7 +293,7 @@ def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, precomputed=
                 embedding[i:i+num, 1],
                 color=colors[i],
                 marker=markers[i],
-                s=70,
+                s=60,
                 edgecolors='black',
                 linewidths=0.6,
                 alpha=0.85,
@@ -302,7 +302,7 @@ def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, precomputed=
             seen_labels.add(group_label)
 
     # Titles and labels
-    ax.set_title("MDS Visualization of Expression Distances", pad=15, weight='bold')
+    ax.set_title(f"MDS Visualization of Dissimilarities Computed Using {baseline}", weight='bold')
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlabel("")
@@ -322,10 +322,10 @@ def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, precomputed=
     plt.setp(legend.get_title(), fontsize=13, weight='bold')
 
     # Professional touches
-    ax.grid(True, linestyle='--', alpha=0.5)
+    ax.grid(True, linestyle='', alpha=0.9)
     ax.set_aspect('equal', adjustable='datalim')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    # ax.spines['top'].set_visible(False)
+    # ax.spines['right'].set_visible(False)
     for spine in ax.spines.values():
         spine.set_visible(True)
     plt.show()
@@ -429,24 +429,24 @@ if __name__ == '__main__':
         markers += [expr[2] for i in range(num_equivalent)]
         labels += [tokens_to_tree(expr[0], sl).to_latex(sl) for i in range(num_equivalent)]
 
-    t_start = time.time()
-    bed = BED(all_expressions, [[1,5],[1,5]], normalize=True).calculate_distances()
-    print(time.time() - t_start)
-    clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
-    score = adjusted_rand_score(clusters, np.array(ground_truth))
-    print("NBED")
-    print("ARI: ", score)
-    print("Silhouette: ", silhouette_score(bed, clusters, metric="precomputed"))
-    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
-    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-
-    # bed = np.log10(bed+1)
-    show_TSNE_clusters(bed, colors, markers, labels, num_equivalent)
-    show_MDS_clusters(bed, colors, markers, labels, num_equivalent)
+    # t_start = time.time()
+    # bed = BED(all_expressions, [[1,5],[1,5]], normalize=True).calculate_distances()
+    # print(time.time() - t_start)
+    # clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
+    # score = adjusted_rand_score(clusters, np.array(ground_truth))
+    # print("NBED")
+    # print("ARI: ", score)
+    # print("Silhouette: ", silhouette_score(bed, clusters, metric="precomputed"))
+    # print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
+    # print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
+    #
+    # # bed = np.log10(bed+1)
+    # show_TSNE_clusters(bed, colors, markers, labels, num_equivalent)
+    # show_MDS_clusters(bed, colors, markers, labels, num_equivalent, "NBED")
 
     t_start = time.time()
     bed = BED(all_expressions, [[1,5],[1,5]], normalize=False).calculate_distances()
-    bed = np.log10(bed+1)
+    # bed = np.log10(bed+1)
     print(time.time() - t_start)
     clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
     print()
@@ -459,8 +459,9 @@ if __name__ == '__main__':
 
     print()
     print("BED + MDS")
-    bed = MDS(dissimilarity="precomputed").fit_transform(bed)
+    # bed = MDS(dissimilarity="precomputed").fit_transform(bed)
     # print(time.time() - t_start)
+    # bed = np.exp(bed) / np.sum(np.exp(bed), axis=1, keepdims=True)
     clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(bed)
     np.fill_diagonal(bed, 0)
     print("ARI BED", adjusted_rand_score(clusters, np.array(ground_truth)))
@@ -469,7 +470,7 @@ if __name__ == '__main__':
     print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
 
     show_TSNE_clusters(bed, colors, markers, labels, num_equivalent, precomputed=False)
-    show_MDS_clusters(bed, colors, markers, labels, num_equivalent, precomputed=False)
+    show_MDS_clusters(bed, colors, markers, labels, num_equivalent, "BED", precomputed=False)
 
     edit = np.zeros((len(all_expressions), len(all_expressions)))
     for i in range(len(all_expressions)):
@@ -485,7 +486,7 @@ if __name__ == '__main__':
     print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
     print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
     show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
-    show_MDS_clusters(edit, colors, markers, labels, num_equivalent)
+    show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Edit distance")
 
     zss_exprs = []
     for expr in all_expressions:
@@ -504,4 +505,4 @@ if __name__ == '__main__':
     print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
     print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
     show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
-    show_MDS_clusters(edit, colors, markers, labels, num_equivalent)
+    show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Tree edit distance")
