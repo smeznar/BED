@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 
 import numpy as np
 import zss
-from ProGED.generators import GeneratorGrammar
 from SRToolkit.dataset import SRBenchmark
+from SRToolkit.utils import generate_n_expressions
 import matplotlib.pyplot as plt
 import editdistance
 import json
@@ -53,10 +53,14 @@ def get_n_best(previous, new, errors_previous, errors_new, number_best):
     return [all_exprs[i] for i in indices], [all_errors[i] for i in indices]
 
 
-def heuristic_search(iterations, number_best, number_new, number_selected, expressions, distance, dataset, evaluator):
+def initialize_heuristic_search(expressions, data=None):
+    pass
+
+def heuristic_search(iterations, number_best, number_new, number_selected, expressions, distance, dataset, evaluator, bi=False):
     errors_by_iteration = []
     best_error = np.inf
     iteration = 0
+    initialize_heuristic_search(expressions[: number_new], data=dataset.X[np.random.permutation(len(dataset.X))[:64],:])
     new_expressions = expressions[:number_new]
     errors = calculate_error(new_expressions, evaluator)
     for error in errors:
@@ -67,7 +71,7 @@ def heuristic_search(iterations, number_best, number_new, number_selected, expre
 
     best_expressions, best_errors = get_n_best([], new_expressions, [], errors, number_best)
 
-    for i in range(iterations):
+    for i in range(1, iterations+1):
         new_expressions = expressions[(i*number_new):((i+1)*number_new)]
         distances = calculate_distances(best_expressions, new_expressions, distance, dataset.X)
         selected_indices = select_best(distances, number_selected)
@@ -105,11 +109,16 @@ if __name__ == '__main__':
     T -> 'C' [0.2]
     T -> V [0.6]
     R -> '(' E ')' [0.6]
-    R -> 'sqrt' '(' E ')' [0.1]
-    R -> '(' E ')' '^2' [0.1]
-    R -> '(' E ')' '^3' [0.1]
-    R -> 'sin' '(' E ')' [0.1]
+    R -> 'log' '(' E ')' [0.1]
+    R -> 'sqrt' '(' E ')' [0.07]
+    R -> '(' E ')' '^2' [0.07]
+    R -> '(' E ')' '^3' [0.06]
+    R -> 'sin' '(' E ')' [0.05]
+    R -> 'cos' '(' E ')' [0.05]
+    V -> 'X_0' [0.5]
+    V -> 'X_1' [0.5]
     """
+
     all_results = {}
     number_new = 100
     iterations = 50
@@ -133,22 +142,13 @@ if __name__ == '__main__':
     new_grammar = copy.copy(grammar)
     for i in range(num_variables):
         new_grammar += f"\nV -> 'X_{i}' [{1/num_variables}]"
-    generator = GeneratorGrammar(new_grammar)
-
     results_bed = []
     results_edit = []
     results_tree_edit = []
 
     for i in range(runs):
         np.random.seed(i)
-        expressions = []
-        expr_set = set()
-        while len(expr_set) < (iterations+1)*number_new:
-            new_expr = generator.generate_one()[0]
-            if "".join(new_expr) in expr_set:
-                continue
-            expressions.append(new_expr)
-            expr_set.add("".join(new_expr))
+        expressions = generate_n_expressions(new_grammar, num_expressions=(iterations+1)*number_new)
         indices = np.random.permutation(len(expressions))
         expressions = [expressions[j] for j in indices]
         bed_distance = lambda e1, e2, X: BED(expressions=[e1], expressions2=[e2], x=X, x_bounds=[[],[],[]]).calculate_distances()
