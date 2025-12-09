@@ -11,8 +11,7 @@ import seaborn as sns
 import zss
 import matplotlib.pyplot as plt
 
-from bed import BED
-from utils import expr_to_zss
+from bed import BED, expr_to_zss
 
 
 # sns.set_theme(font_scale=1, palette="Set2", rc={'figure.figsize': (10, 8), 'text.usetex': True,

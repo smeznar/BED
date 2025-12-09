@@ -6,7 +6,16 @@ from scipy.stats.qmc import LatinHypercube
 
 from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.symbol_library import SymbolLibrary
+import zss
 # import heapq
+
+def expr_to_zss(expr):
+    zexpr = zss.Node(expr.symbol)
+    if expr.left is not None:
+        zexpr.addkid(expr_to_zss(expr.left))
+    if expr.right is not None:
+        zexpr.addkid(expr_to_zss(expr.right))
+    return zexpr
 
 def custom_wasserstein(u, v, similarity=True):
     u = np.sort(u)
@@ -18,21 +27,17 @@ def custom_wasserstein(u, v, similarity=True):
     u_cdf = u_cdf_indices / u.size
     v_cdf = v_cdf_indices / v.size
     distance = np.vecdot(np.abs(u_cdf - v_cdf), deltas)
-    if similarity:
-        return distance, np.vecdot(u_cdf, deltas), np.vecdot(v_cdf, deltas)
-    else:
-        return distance
+    return distance
 
 class BED:
     def __init__(self, expressions, x_bounds=None, const_bounds=(0.2, 5), points_sampled=64, consts_sampled=32, expressions2=None,
-                 x=None, randomized=False, cutoff_threshold=1e20, default_distance=np.inf, normalize=True, symbol_library=None, seed=None):
+                 x=None, randomized=False, cutoff_threshold=1e20, default_distance=np.inf, symbol_library=None, seed=None):
         if x_bounds is None and x is None:
             raise Exception("Either x of x_bounds must not be None.")
         self.points_sampled = points_sampled
         self.consts_sampled = consts_sampled
         self.cutoff_threshold = cutoff_threshold
         self.default_distance = default_distance
-        self.normalize = normalize
 
         if symbol_library is None:
             if x_bounds is not None:
@@ -113,16 +118,9 @@ class BED:
             if len(p1)==0 and len(p2)==0:
                 cube_distance.append(0.0)
             elif len(p1)==0 or len(p2)==0:
-                if self.normalize:
-                    cube_distance.append(1)
-                else:
-                    cube_distance.append(self.default_distance)
+                cube_distance.append(self.default_distance)
             else:
-                if self.normalize:
-                    d, wdp1, wdp2 = custom_wasserstein(p1, p2, similarity=True)
-                    cube_distance.append(d / (wdp1 + wdp2))
-                else:
-                    cube_distance.append(custom_wasserstein(p1, p2, similarity=False))
+                cube_distance.append(custom_wasserstein(p1, p2, similarity=False))
 
         return np.mean(cube_distance)
 

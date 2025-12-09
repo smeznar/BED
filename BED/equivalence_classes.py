@@ -11,8 +11,7 @@ import time
 import zss
 import matplotlib as mpl
 
-from BED.utils import expr_to_zss
-from bed import BED
+from bed import BED, expr_to_zss
 
 
 def same_tree(expr_tree1: Node, expr_tree2: Node) -> bool:
@@ -141,7 +140,7 @@ def factor(expr_tree: Node) -> Node:
         else:
             return Node("*", expr_tree.left, Node("2"))
     return expr_tree
-0
+
 
 def generate_subtrees(sl):
     while True:
@@ -469,8 +468,8 @@ if __name__ == '__main__':
     print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
     print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
 
-    show_TSNE_clusters(bed, colors, markers, labels, num_equivalent, precomputed=False)
-    show_MDS_clusters(bed, colors, markers, labels, num_equivalent, "BED", precomputed=False)
+    # show_TSNE_clusters(bed, colors, markers, labels, num_equivalent, precomputed=False)
+    # show_MDS_clusters(bed, colors, markers, labels, num_equivalent, "BED", precomputed=False)
 
     edit = np.zeros((len(all_expressions), len(all_expressions)))
     for i in range(len(all_expressions)):
@@ -485,7 +484,7 @@ if __name__ == '__main__':
     print("Silhouette: ", silhouette_score(edit, clusters, metric="precomputed"))
     print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
     print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-    show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
+    # show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
     show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Edit distance")
 
     zss_exprs = []
@@ -504,5 +503,5 @@ if __name__ == '__main__':
     print("Silhouette: ", silhouette_score(tree_edit, clusters, metric="precomputed"))
     print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
     print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-    show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
-    show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Tree edit distance")
+    # show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
+    # show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Tree edit distance")
