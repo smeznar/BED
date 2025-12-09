@@ -6,3 +6,4 @@ pyarrow
 scipy
 seaborn
 zss
+symbolic-regression-toolkit

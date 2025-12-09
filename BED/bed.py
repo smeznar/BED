@@ -17,7 +17,7 @@ def expr_to_zss(expr):
         zexpr.addkid(expr_to_zss(expr.right))
     return zexpr
 
-def custom_wasserstein(u, v, similarity=True):
+def custom_wasserstein(u, v):
     u = np.sort(u)
     v = np.sort(v)
     all_values = np.sort(np.concatenate((u, v)))
@@ -120,7 +120,7 @@ class BED:
             elif len(p1)==0 or len(p2)==0:
                 cube_distance.append(self.default_distance)
             else:
-                cube_distance.append(custom_wasserstein(p1, p2, similarity=False))
+                cube_distance.append(custom_wasserstein(p1, p2))
 
         return np.mean(cube_distance)
 
