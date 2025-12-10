@@ -1,18 +1,18 @@
 import numpy.random
-# from ProGED.generators import GeneratorGrammar
-from SRToolkit.utils import tokens_to_tree, SymbolLibrary, Node, generate_n_expressions
+import sklearn
+from SRToolkit.utils import tokens_to_tree, SymbolLibrary, Node, generate_n_expressions, expr_to_executable_function
 import numpy as np
 import matplotlib.pyplot as plt
 import editdistance
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import adjusted_rand_score, silhouette_score, v_measure_score, fowlkes_mallows_score
-from sklearn.manifold import TSNE, MDS
-import time
+from sklearn.manifold import MDS
 import zss
 import matplotlib as mpl
+from rapidfuzz.distance import Jaro
+from matplotlib.patches import Polygon
 
 from bed import BED, expr_to_zss
-
 
 def same_tree(expr_tree1: Node, expr_tree2: Node) -> bool:
     if expr_tree1.symbol == expr_tree2.symbol and expr_tree1.symbol != "C":
@@ -150,6 +150,8 @@ def generate_subtrees(sl):
         subtree1 = tokens_to_tree(expr_candidate, sl)
         if len(subtree1) > 5:
             continue
+        if np.all(np.isclose(expr_to_executable_function(expr_candidate, sl)(np.random.random(size=(20, 2))*4+1, None), np.zeros(20))):
+            continue
         subtree2 = tokens_to_tree(expr_candidate, sl)
         return subtree1, subtree2
 
@@ -225,7 +227,6 @@ def generate_equivalent(expr, num_equivalent, symbol_library, length_limit=40):
         expr_tree = tokens_to_tree(expr, symbol_library)
         for i in range(np.random.randint(4)+1):
             new_expression = transform_expression(expr_tree, symbol_library).to_list(symbol_library=symbol_library)
-            # print("".join(new_expression))
             expr_tree = tokens_to_tree(new_expression, symbol_library)
 
         if 0 < length_limit < len(new_expression):
@@ -233,31 +234,11 @@ def generate_equivalent(expr, num_equivalent, symbol_library, length_limit=40):
         if "".join(new_expression) not in eq_strings_set:
             equivalent_expressions.append(new_expression)
             eq_strings_set.add("".join(new_expression))
-            # print(len(eq_strings_set))
     return equivalent_expressions
 
 
-def show_TSNE_clusters(distance_matrix, colors, markers, exprs, num, precomputed=True):
-    if precomputed:
-        tsne = TSNE(n_components=2, metric='precomputed', init="random")
-    else:
-        tsne = TSNE(n_components=2, init="random")
-    embedding = tsne.fit_transform(distance_matrix)  # shape: (N, 2)
-    # Step 3: Visualize
-    plt.figure(figsize=(12, 8))
-    for i in range(distance_matrix.shape[0]//num):
-        plt.scatter(embedding[(i*num):((i+1)*num), 0], embedding[(i*num):((i+1)*num), 1], color=colors[(i*num)], marker=markers[(i*num)], label=exprs[(i*num)])
-    plt.title("t-SNE with Precomputed Distances")
-    plt.xlabel("Component 1")
-    plt.ylabel("Component 2")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.legend()
-    plt.show()
-
-
-def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, baseline, precomputed=True):
-    # High-quality, publication-ready style
+def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, baseline, precomputed=True,
+                      equivalence_groups_for_ga=False):
     plt.style.use('seaborn-v0_8-whitegrid')
     mpl.rcParams.update({
         'font.size': 14,
@@ -267,22 +248,24 @@ def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, baseline, pr
         'ytick.labelsize': 14,
         'legend.fontsize': 12,
         'figure.dpi': 300,
-        'savefig.dpi': 600,   # For very sharp output
-        'pdf.fonttype': 42,   # Editable text in Illustrator
+        'savefig.dpi': 600,
+        'pdf.fonttype': 42,
         'ps.fonttype': 42
     })
 
-    # Perform MDS
     if precomputed:
         mds = MDS(n_components=2, dissimilarity='precomputed', n_init=10, random_state=42)
     else:
         mds = MDS(n_components=2, n_init=10, random_state=42)
     embedding = mds.fit_transform(distance_matrix)
 
-    # Create figure
     fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
 
-    # Group plotting
+    if equivalence_groups_for_ga:
+        for group, c in [([1,2,3,4], "green"), ([5,6,7], "red"), ([8,9,10], "purple"), ([11,12], "orange"), ([13,14,15], "brown")]:
+            patch = Polygon(embedding[group], facecolor=c, edgecolor=c, linewidth=0.6, alpha=0.4)
+            ax.add_patch(patch)
+
     seen_labels = set()
     for i in range(0, distance_matrix.shape[0], num):
         group_label = exprs[i]
@@ -300,35 +283,77 @@ def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, baseline, pr
             )
             seen_labels.add(group_label)
 
-    # Titles and labels
-    ax.set_title(f"MDS Visualization of Dissimilarities Computed Using {baseline}", weight='bold')
+    if baseline == "BED" and equivalence_groups_for_ga:
+        ax.set_title(f"Expression Space Structured by Behavior ({baseline})", weight='bold')
+    elif equivalence_groups_for_ga:
+        ax.set_title(f"Expression Space Structured by Syntax ({baseline})", weight='bold')
+    else:
+        ax.set_title(f"MDS Visualization of Dissimilarities Computed Using {baseline}", weight='bold')
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlabel("")
     ax.set_ylabel("")
 
-    # Legend formatting
     legend = ax.legend(
-        title="Expression Groups",
-        bbox_to_anchor=(1.05, 1),  # Move legend outside plot
+        title="Expressions",
+        bbox_to_anchor=(1.05, 1),
         loc="upper left",
         fontsize=10,
         title_fontsize=12,
-        ncol=1,  # Compact into two columns
+        ncol=1,
         borderaxespad=0.
     )
     legend._legend_box.align = "left"
     plt.setp(legend.get_title(), fontsize=13, weight='bold')
 
-    # Professional touches
     ax.grid(True, linestyle='', alpha=0.9)
     ax.set_aspect('equal', adjustable='datalim')
-    # ax.spines['top'].set_visible(False)
-    # ax.spines['right'].set_visible(False)
     for spine in ax.spines.values():
         spine.set_visible(True)
     plt.show()
 
+
+def graphical_abstract_figure(eq_classes):
+    expressions = [(expression[0].split(" "), expression[1], expression[2]) for expression in eq_classes]
+    colors = []
+    markers = []
+    labels = []
+    np.random.seed()
+    all_expressions = []
+    for expr in expressions:
+        equivalent = [expr[0]]
+        all_expressions += equivalent
+        colors += [expr[1]]
+        markers += [expr[2]]
+        labels += [tokens_to_tree(expr[0], sl).to_latex(sl)]
+
+    bed = BED(all_expressions, [[1, 5], [1, 5]]).calculate_distances()
+    bed = np.log10(bed + 1)
+    show_MDS_clusters(bed, colors, markers, labels, 1, "BED", precomputed=True,
+                      equivalence_groups_for_ga=True)
+
+    zss_exprs = []
+    for expr in all_expressions:
+        zss_exprs.append(expr_to_zss(tokens_to_tree(expr, sl)))
+    tree_edit = np.zeros((len(zss_exprs), len(zss_exprs)))
+    for i in range(len(zss_exprs)):
+        for j in range(i + 1, len(zss_exprs)):
+            tree_edit[i, j] = tree_edit[j, i] = zss.simple_distance(zss_exprs[i], zss_exprs[j])
+    show_MDS_clusters(tree_edit, colors, markers, labels, 1, "Tree edit distance",
+                      precomputed=True, equivalence_groups_for_ga=True)
+
+
+def print_results(baseline, results):
+    res = np.array(results)
+    mean = np.mean(res, axis=0)
+    std = np.std(res, axis=0)
+    print()
+    print(baseline)
+    print(f"ARI: {mean[0]} (+- {std[0]})")
+    print(f"Silhouette: {mean[1]} (+- {std[1]})")
+    print(f"V-measure: {mean[2]} (+- {std[2]})")
+    print(f"Fowlkes-Mallows: {mean[3]} (+- {std[3]})")
+    print("All: ", results)
 
 
 if __name__ == '__main__':
@@ -352,31 +377,13 @@ if __name__ == '__main__':
     V -> 'X_0' [0.5]
     V -> 'X_1' [0.5]
     """
-    num_equivalent = 10
+    num_equivalent = 10 # 1 for graphical abstract
+    sl = SymbolLibrary.default_symbols(2)
+    num_runs = 10
+    show_MDS_plots = False # For MDS plots this should be True and num_runs = 1
+    verbose = False
 
-    # ("C + C * X_0 + C * X_0 ^2", "red", "o"),  # polynomial
-    # ("C + C * X_1 + C * X_1 ^2", "red", "s"),
-    # ("C + C * X_0 ^2", "red", "*"),
-    # ("C + C * X_1 ^2", "red", "P"),
-    # ("C + C * X_0 + C * X_1 ^2", "red", "v"),
-    # ("C + C * X_1 + C * X_0 ^2", "red", "^"),
-    # ("C + C * X_0 + C * X_1 + C * X_0 * X_1 + C * X_0 ^2 + C * X_1 ^2", "red", "x"),
-    #
-    # trigonometrijski:
-    #         ("sin ( C * X_0 )", "purple", "o"),
-    #         ("cos ( C * X_1 )", "purple", "v"),
-    # ("C * sin( C * X_0 ) + C * cos( C * X_1 )", "purple", "..."),
-    # ("C * sin( C * X_1 ) + C * cos( C * X_0 )", "purple", "..."),
-    #
-    # koren:
-    #         ("C + sqrt( C * X_0 )", "orange", "o"),
-    #         ("C + sqrt( X_0 ) + sqrt( C * X_1 )", "orange", "s"),
-    #
-    # logaritem:
-    #         ("log ( C * X_0 ^2 + 1 )", "brown", "o"),  # logarithmic
-    #         ("log ( C * X_0 ^2 + C * X_1 ^2 + 1 )", "brown", "s"),
-
-    expressions = [
+    eq_classes = [
         # constant
         ("C", "blue", "o"),
 
@@ -405,103 +412,204 @@ if __name__ == '__main__':
         ("log ( X_1 + C )", "brown", "s"),
         ("C * log ( X_0 * X_1 )", "brown", "^"),
     ]
-    expressions = [(expression[0].split(" "), expression[1], expression[2]) for expression in expressions]
-    ground_truth = []
-    for i in range(len(expressions)):
-        for j in range(num_equivalent):
-            ground_truth.append(i)
-    colors = []
-    markers =  []
-    labels = []
-    np.random.seed()
-    sl = SymbolLibrary.default_symbols(2)
-    all_expressions = []
-    for expr in expressions:
-        equivalent = generate_equivalent(expr[0], num_equivalent, sl)
-        print("--------------------------------")
-        print(f"       {''.join(expr[0])}")
-        print("--------------------------------")
-        for e in equivalent:
-            print(''.join(e))
-        all_expressions += equivalent
-        colors += [expr[1] for i in range(num_equivalent)]
-        markers += [expr[2] for i in range(num_equivalent)]
-        labels += [tokens_to_tree(expr[0], sl).to_latex(sl) for i in range(num_equivalent)]
 
-    # t_start = time.time()
-    # bed = BED(all_expressions, [[1,5],[1,5]], normalize=True).calculate_distances()
-    # print(time.time() - t_start)
-    # clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
-    # score = adjusted_rand_score(clusters, np.array(ground_truth))
-    # print("NBED")
-    # print("ARI: ", score)
-    # print("Silhouette: ", silhouette_score(bed, clusters, metric="precomputed"))
-    # print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
-    # print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-    #
-    # # bed = np.log10(bed+1)
-    # show_TSNE_clusters(bed, colors, markers, labels, num_equivalent)
-    # show_MDS_clusters(bed, colors, markers, labels, num_equivalent, "NBED")
+    # Uncomment next line for clustering plots in the graphical abstract
+    # graphical_abstract_figure(eq_classes)
 
-    t_start = time.time()
-    bed = BED(all_expressions, [[1,5],[1,5]], normalize=False).calculate_distances()
-    # bed = np.log10(bed+1)
-    print(time.time() - t_start)
-    clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
+    results = {"BED": [],"BED features": [], "Edit distance": [], "Edit features": [], "Jaro distance": [],
+               "JARO features": [], "Tree edit distance": [], "Tree edit features": []}
+
+    for run_seed in range(num_runs):
+        print(f"RUN {run_seed+1}/{num_runs}")
+        np.random.seed(run_seed)
+        expressions = [(expression[0].split(" "), expression[1], expression[2]) for expression in eq_classes]
+        ground_truth = []
+        for i in range(len(expressions)):
+            for j in range(num_equivalent):
+                ground_truth.append(i)
+
+        colors = []
+        markers =  []
+        labels = []
+        all_expressions = []
+        for expr in expressions:
+            equivalent = generate_equivalent(expr[0], num_equivalent, sl)
+            if verbose:
+                print("--------------------------------")
+                print(f"       {''.join(expr[0])}")
+                print("--------------------------------")
+                for e in equivalent:
+                    print(''.join(e))
+            all_expressions += equivalent
+            colors += [expr[1] for i in range(num_equivalent)]
+            markers += [expr[2] for i in range(num_equivalent)]
+            labels += [tokens_to_tree(expr[0], sl).to_latex(sl) for i in range(num_equivalent)]
+
+
+        bed = BED(all_expressions, [[1,5],[1,5]], seed=run_seed).calculate_distances()
+        bed = np.log10(bed+1)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(bed)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(bed, clusters, metric="precomputed")
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["BED"].append([ari, silhouette, v_measure, fowlkes_mallows])
+
+        if verbose:
+            print()
+            print("BED")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        if show_MDS_plots:
+            show_MDS_clusters(bed, colors, markers, labels, num_equivalent, "BED", precomputed=True)
+
+        normalizer = sklearn.preprocessing.Normalizer()
+        bed = normalizer.fit_transform(bed)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(bed)
+        np.fill_diagonal(bed, 0)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(bed, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["BED features"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Normalized BED as features")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+
+        edit = np.zeros((len(all_expressions), len(all_expressions)))
+        for i in range(len(all_expressions)):
+            for j in range(i+1, len(all_expressions)):
+                edit[i, j] = edit[j, i] = editdistance.eval(all_expressions[i], all_expressions[j])
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(edit)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(edit, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["Edit distance"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Edit distance")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        if show_MDS_plots:
+            show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Edit distance", precomputed=True)
+
+        normalizer = sklearn.preprocessing.Normalizer()
+        edit = normalizer.fit_transform(edit)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(edit)
+        np.fill_diagonal(edit, 0)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(edit, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["Edit features"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Normalized Edit distance as features")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+
+        jaro = np.zeros((len(all_expressions), len(all_expressions)))
+        for i in range(len(all_expressions)):
+            for j in range(i+1, len(all_expressions)):
+                jaro[i, j] = jaro[j, i] = Jaro.distance(all_expressions[i], all_expressions[j])
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(jaro)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(edit, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["Jaro distance"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("JARO distance")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        if show_MDS_plots:
+            show_MDS_clusters(jaro, colors, markers, labels, num_equivalent, "JARO distance", precomputed=True)
+
+        normalizer = sklearn.preprocessing.Normalizer()
+        jaro = normalizer.fit_transform(jaro)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(jaro)
+        np.fill_diagonal(jaro, 0)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(jaro, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["JARO features"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Normalized JARO as features")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        zss_exprs = []
+        for expr in all_expressions:
+            zss_exprs.append(expr_to_zss(tokens_to_tree(expr, sl)))
+        tree_edit = np.zeros((len(zss_exprs), len(zss_exprs)))
+        for i in range(len(zss_exprs)):
+            for j in range(i+1, len(zss_exprs)):
+                tree_edit[i, j] = tree_edit[j, i] = zss.simple_distance(zss_exprs[i], zss_exprs[j])
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(tree_edit)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(tree_edit, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["Tree edit distance"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Tree edit distance")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        if show_MDS_plots:
+            show_MDS_clusters(tree_edit, colors, markers, labels, num_equivalent, "Tree edit distance", precomputed=True)
+
+        normalizer = sklearn.preprocessing.Normalizer()
+        tree_edit = normalizer.fit_transform(tree_edit)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(tree_edit)
+        np.fill_diagonal(tree_edit, 0)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(tree_edit, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["Tree edit features"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Normalized tree edit as features")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
     print()
-    print("BED")
-    print("ARI: ", adjusted_rand_score(clusters, np.array(ground_truth)))
-    print("Silhouette: ", silhouette_score(bed, clusters, metric="precomputed"))
-    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
-    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-
-
+    print("----------------------------------------------------------------")
     print()
-    print("BED + MDS")
-    # bed = MDS(dissimilarity="precomputed").fit_transform(bed)
-    # print(time.time() - t_start)
-    # bed = np.exp(bed) / np.sum(np.exp(bed), axis=1, keepdims=True)
-    clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(bed)
-    np.fill_diagonal(bed, 0)
-    print("ARI BED", adjusted_rand_score(clusters, np.array(ground_truth)))
-    print("Silhouette BED", silhouette_score(bed, clusters))
-    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
-    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-
-    # show_TSNE_clusters(bed, colors, markers, labels, num_equivalent, precomputed=False)
-    # show_MDS_clusters(bed, colors, markers, labels, num_equivalent, "BED", precomputed=False)
-
-    edit = np.zeros((len(all_expressions), len(all_expressions)))
-    for i in range(len(all_expressions)):
-        for j in range(i+1, len(all_expressions)):
-            edit[i, j] = edit[j, i] = editdistance.eval(all_expressions[i], all_expressions[j])
-
-    clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(edit)
-    score = adjusted_rand_score(clusters, np.array(ground_truth))
-    print()
-    print("Edit distance")
-    print("ARI: ", score)
-    print("Silhouette: ", silhouette_score(edit, clusters, metric="precomputed"))
-    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
-    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-    # show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
-    show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Edit distance")
-
-    zss_exprs = []
-    for expr in all_expressions:
-        zss_exprs.append(expr_to_zss(tokens_to_tree(expr, sl)))
-    tree_edit = np.zeros((len(zss_exprs), len(zss_exprs)))
-    for i in range(len(zss_exprs)):
-        for j in range(i+1, len(zss_exprs)):
-            tree_edit[i, j] = tree_edit[j, i] = zss.simple_distance(zss_exprs[i], zss_exprs[j])
-    clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(
-        tree_edit)
-    score = adjusted_rand_score(clusters, np.array(ground_truth))
-    print()
-    print("Tree edit distance")
-    print("ARI: ", score)
-    print("Silhouette: ", silhouette_score(tree_edit, clusters, metric="precomputed"))
-    print("V-measure: ", v_measure_score(clusters, np.array(ground_truth)))
-    print("Fowlkes-Mallows: ", fowlkes_mallows_score(clusters, np.array(ground_truth)))
-    # show_TSNE_clusters(edit, colors, markers, labels, num_equivalent)
-    # show_MDS_clusters(edit, colors, markers, labels, num_equivalent, "Tree edit distance")
+    print_results("BED", results["BED"])
+    print_results("BED-cf", results["BED features"])
+    print_results("Edit distance", results["Edit distance"])
+    print_results("Edit-cf", results["Edit features"])
+    print_results("JARO distance", results["Jaro distance"])
+    print_results("JARO-cf", results["JARO features"])
+    print_results("Tree edit distance", results["Tree edit distance"])
+    print_results("Tree-cf", results["Tree edit features"])
