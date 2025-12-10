@@ -1,7 +1,11 @@
-# Behaviour-Aware Expression Distance (BED) 
+# Behavior-Aware Expression Dissimilarity (BED) 
 
-This repository implements the distance metric from the paper **_Quantifying Behavioural Distance Between Mathematical Expressions_**.
+This repository contains an implementation of the Behavior-Aware Expression Dissimilarity distance measure from the paper **_Quantifying Behavioral Dissimilarity Between Mathematical Expressions_**.
 Additionally, this repository contains reproducible experiments from the paper.
+
+You can find a preprint explaining the dissimilarity and experiments on arXiv: [https://arxiv.org/abs/2408.11515](https://arxiv.org/abs/2408.11515)
+
+A more streamlined implementation of the measure can be found in the [Symbolic Regression Toolkit Python package](https://github.com/smeznar/SymbolicRegressionToolkit). 
 
 ![Banner for the repository](figures/banner.jpg)
 
