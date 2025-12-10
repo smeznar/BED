@@ -2,7 +2,6 @@ import itertools
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
-# from scipy.stats import wasserstein_distance
 
 from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -26,8 +25,7 @@ def custom_wasserstein(u, v):
     v_cdf_indices = v.searchsorted(all_values[:-1], 'right')
     u_cdf = u_cdf_indices / u.size
     v_cdf = v_cdf_indices / v.size
-    distance = np.vecdot(np.abs(u_cdf - v_cdf), deltas)
-    return distance
+    return np.vecdot(np.abs(u_cdf - v_cdf), deltas)
 
 class BED:
     def __init__(self, expressions, x_bounds=None, const_bounds=(0.2, 5), points_sampled=64, consts_sampled=32, expressions2=None,

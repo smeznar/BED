@@ -6,9 +6,17 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from SRToolkit.dataset import SRBenchmark
 from SRToolkit.utils import generate_n_expressions
+from scipy.stats.qmc import LatinHypercube
 
-sns.set_theme(font_scale=2, palette="Set2", rc={'figure.figsize': (10, 8), 'text.usetex': True,
-                                                'axes.titlesize': 35, "axes.labelsize": 26})
+
+plt.rcParams.update({
+    "text.usetex": True,
+    "figure.figsize": (6, 5),
+    "font.size": 12,
+    "figure.dpi": 400,
+    "axes.labelsize": 14
+})
+plt.rcParams['text.latex.preamble']="\\usepackage{amsmath}"
 
 from argparse import ArgumentParser
 import itertools
@@ -93,14 +101,6 @@ def generate_expressions(num_expressions, num_vars):
 
 
 if __name__ == '__main__':
-    # generate_expressions(200, 1)
-    # for num_vars in [1, 4]:
-    #     for num_points in [4, 8, 16, 32, 64, 128]:
-    #         for num_consts in [4, 8, 16, 32, 64, 128]:
-    #             for seed in range(100):
-    #                 print(
-    #                     f"python consistency.py -num_vars {num_vars} -expr_path ../results/consistency/expressions/expressions_{num_vars}.txt -seed {seed} -num_points {num_points} -num_const {num_consts}")
-    # print("finished")
     parser = ArgumentParser(prog='Symbolic regression', description='Run a symbolic regression benchmark')
     parser.add_argument("-num_vars", type=int)
     parser.add_argument("-expr_path", type=str)
@@ -109,15 +109,30 @@ if __name__ == '__main__':
     parser.add_argument("-num_const", type=int)
     parser.add_argument("-figure_path", type=str)
     parser.add_argument("-random", action="store_true")
+    parser.add_argument("-stringency", default="run") # all: Same X across all runs; run: same X for a run; pair: new X for each pair
     args = parser.parse_args()
 
     if (args.seed is not None and args.num_points is not None and args.num_const is not None
             and args.expr_path is not None and args.num_vars is not None):
         expressions = read_expressions_txt(args.expr_path)
-        bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5), normalize=True,
-                  points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed)
+        if args.stringency == "all":
+            np.random.seed(0)
+            x_bounds = [(1, 5) for i in range(args.num_vars)]
+            interval_length = np.array([ub - lb for (lb, ub) in x_bounds])
+            lower_bound = np.array([lb for (lb, ub) in x_bounds])
+            lho = LatinHypercube(len(x_bounds), optimization="random-cd", seed=0)
+            X = lho.random(args.num_points) * interval_length + lower_bound
+            bed = BED(expressions, x=X, const_bounds=(1, 5), points_sampled=args.num_points,
+                      consts_sampled=args.num_const, seed=args.seed)
+        elif args.stringency == "run":
+            bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
+                      points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed)
+        else:
+            bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
+                      points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed,
+                      randomized=True)
         dm = bed.calculate_distances()
-        np.save(f"../results/consistency/distance_matrices_smape_{args.num_vars}/dm_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npy", dm)
+        np.save(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npy", dm)
 
     elif args.figure_path is not None and args.num_vars is not None:
         x = []
@@ -125,7 +140,7 @@ if __name__ == '__main__':
         value = []
         for num_points in [4, 8, 16, 32, 64, 128]:
             for num_const in [4, 8, 16, 32, 64, 128]:
-                files = glob.glob(f"../results/consistency/distance_matrices_smape_{args.num_vars}/dm_{num_points}_{num_const}_*_{args.num_vars}.npy")
+                files = glob.glob(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{num_points}_{num_const}_*_{args.num_vars}.npy")
                 matrices = []
                 for file in files:
                     if args.random:
@@ -136,10 +151,20 @@ if __name__ == '__main__':
                 x.append(num_points)
                 y.append(num_const)
 
-        sd_mat = (pd.DataFrame(data={"\#VS": x, "\#CS": y, "SD": value})
-                  .pivot(index="\#VS", columns="\#CS", values="SD"))
+        sd_mat = (pd.DataFrame(data={"$|\\boldsymbol{X}|$": x, "$|\\mathbf{C}|$": y, "SD": value})
+                  .pivot(index="$|\\boldsymbol{X}|$", columns="$|\\mathbf{C}|$", values="SD"))
         sd_mat.sort_index(level=0, ascending=False, inplace=True)
 
         sns.heatmap(sd_mat, annot=True, cmap="coolwarm", linewidth=.5, vmax=1.0, vmin=0.0, fmt=".3g")
-        plt.title(f"Number of variables: {args.num_vars}")
+        if args.num_vars == 1:
+            text = f"\\textbf{{Consistency: 1 Variable}}"
+        elif args.stringency == "all":
+            text = f"\\textbf{{Consistency: $\\boldsymbol{{X}}$ is sampled once}}\n"
+        elif args.stringency == "pair":
+            text = f"\\textbf{{Consistency: $\\boldsymbol{{X}}$ is sampled for each calculation}}\n"
+        else:
+            text = f"\\textbf{{Consistency: {args.num_vars} Variables}}\n"
+
+        plt.title(text)
+        plt.tight_layout()
         plt.savefig(args.figure_path)
