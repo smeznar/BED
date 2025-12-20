@@ -1,4 +1,5 @@
 import glob
+import time
 
 import numpy as np
 import pandas as pd
@@ -122,35 +123,46 @@ if __name__ == '__main__':
             lower_bound = np.array([lb for (lb, ub) in x_bounds])
             lho = LatinHypercube(len(x_bounds), optimization="random-cd", seed=0)
             X = lho.random(args.num_points) * interval_length + lower_bound
+            start_time = time.time()
             bed = BED(expressions, x=X, const_bounds=(1, 5), points_sampled=args.num_points,
                       consts_sampled=args.num_const, seed=args.seed)
         elif args.stringency == "run":
+            start_time = time.time()
             bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
                       points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed)
         else:
+            start_time = time.time()
             bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
                       points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed,
                       randomized=True)
         dm = bed.calculate_distances()
-        np.save(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npy", dm)
+        time_taken = time.time() - start_time
+        np.savez(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npz", dm=dm, time=time_taken)
 
     elif args.figure_path is not None and args.num_vars is not None:
         x = []
         y = []
         value = []
+        t = []
         for num_points in [4, 8, 16, 32, 64, 128]:
             for num_const in [4, 8, 16, 32, 64, 128]:
-                files = glob.glob(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{num_points}_{num_const}_*_{args.num_vars}.npy")
+                files = glob.glob(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{num_points}_{num_const}_*_{args.num_vars}.npz")
                 matrices = []
+                time_taken = []
+                if len(files) == 0:
+                    time_taken.append(0)
                 for file in files:
                     if args.random:
                         matrices.append(np.random.random((200, 200)))
                     else:
-                        matrices.append(np.load(file))
+                        data = np.load(file)
+                        matrices.append(data["dm"])
+                        time_taken.append(data["time"])
                 value.append(spearman(matrices))
                 x.append(num_points)
                 y.append(num_const)
-
+                t.append(np.mean(time_taken))
+                print(num_points, num_const, np.mean(time_taken), np.std(time_taken), np.std(time_taken)/np.mean(time_taken))
         sd_mat = (pd.DataFrame(data={"$|\\boldsymbol{X}|$": x, "$|\\mathbf{C}|$": y, "SD": value})
                   .pivot(index="$|\\boldsymbol{X}|$", columns="$|\\mathbf{C}|$", values="SD"))
         sd_mat.sort_index(level=0, ascending=False, inplace=True)
@@ -168,3 +180,14 @@ if __name__ == '__main__':
         plt.title(text)
         plt.tight_layout()
         plt.savefig(args.figure_path)
+
+        plt.clf()
+        sd_mat = (pd.DataFrame(data={"$|\\boldsymbol{X}|$": x, "$|\\mathbf{C}|$": y, "time": t})
+                  .pivot(index="$|\\boldsymbol{X}|$", columns="$|\\mathbf{C}|$", values="time", ))
+        sd_mat.sort_index(level=0, ascending=False, inplace=True)
+
+        sns.heatmap(sd_mat, annot=True, cmap="coolwarm", linewidth=.5, vmin=0.0, fmt=".1f")
+
+        plt.title("\\textbf{Time taken to calculate a single run}")
+        plt.tight_layout()
+        plt.savefig(args.figure_path.replace(".png", "_time.png"))
