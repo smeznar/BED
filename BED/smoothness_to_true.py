@@ -1,8 +1,9 @@
+import time
 from argparse import ArgumentParser
 from pathlib import Path
 
 import editdistance
-from SRToolkit.dataset import SRBenchmark
+from SRToolkit.dataset import SR_benchmark
 from SRToolkit.utils import generate_n_expressions
 from SRToolkit.utils import tokens_to_tree as ttt
 import numpy as np
@@ -103,7 +104,7 @@ def plot_metric(df, main_name, ds, dataset, palette, y_text, save_name):
     plt.ylim(max(1e-4, df[df["Metric"] == "Optimal"][y_text].min() * 0.95))
     plt.xlabel("Number of Closest Expressions")
     plt.ylabel(y_text)
-    expr_tex = ttt(dataset.ground_truth, dataset.symbols).to_latex(dataset.symbols)
+    expr_tex = ttt(dataset.ground_truth, dataset.symbol_library).to_latex(dataset.symbol_library)
     plt.title(f"\\textbf{{Expression ({ds}): }}\\boldmath {expr_tex}", fontsize=14)
     plt.legend(title="\\textbf{Measure}", frameon=True)
     plt.grid(False)
@@ -156,65 +157,77 @@ if __name__ == '__main__':
         number_of_expressions = 100000
         num_points = 64
         threshold = 1e20
-        dataset = SRBenchmark.feynman("../data/feynman").create_dataset(args.dataset)
+        dataset = SR_benchmark.feynman("../data/feynman").create_dataset(args.dataset)
         num_variables = dataset.X.shape[1]
         evaluator = dataset.create_evaluator()
         for i in range(num_variables):
             grammar += f"\nV -> 'X_{i}' [{1 / num_variables}]"
         expressions = generate_n_expressions(grammar, number_of_expressions, max_expression_length=40, verbose=False)
+        start_time = time.time()
         losses = np.array([evaluator.evaluate_expr(expr) for expr in expressions])
+        time_optimal = time.time() - start_time
         losses = np.nan_to_num(losses, nan=np.inf, posinf=np.inf, neginf=np.inf)
         invalid_indices = np.where(losses > 1e20)[0]
 
         # Optimal
         distance = np.sort(losses)[:top_n]
-        np.savez(f"../results/smoothness/Optimal/{args.dataset}.npz", rmse=distance, invalid_count=0)
+        np.savez(f"../results/smoothness/Optimal/{args.dataset}.npz", rmse=distance, invalid_count=0, time=time_optimal)
 
         # Edit
         edit = []
+        start_time = time.time()
         for expr in expressions:
             edit.append(editdistance.eval(dataset.ground_truth, expr))
+        time_edit = time.time() - start_time
         edit_ind = np.argsort(edit)
         invalid_edit = np.isin(edit_ind[:top_n], invalid_indices).sum()
         result_edit = losses[edit_ind[~np.isin(edit_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/Edit/{args.dataset}.npz", rmse=result_edit, invalid_count=invalid_edit)
+        np.savez(f"../results/smoothness/Edit/{args.dataset}.npz", rmse=result_edit, invalid_count=invalid_edit, time=time_edit)
 
         # Tree edit
         tree = []
-        zss_ground_truth = expr_to_zss(ttt(dataset.ground_truth, dataset.symbols))
+        zss_ground_truth = expr_to_zss(ttt(dataset.ground_truth, dataset.symbol_library))
+        start_time = time.time()
         for expr in expressions:
-            tree.append(zss.simple_distance(zss_ground_truth, expr_to_zss(ttt(expr, dataset.symbols))))
+            tree.append(zss.simple_distance(zss_ground_truth, expr_to_zss(ttt(expr, dataset.symbol_library))))
+        time_tree = time.time() - start_time
         tree_ind = np.argsort(tree)
         invalid_tree = np.isin(tree_ind[:top_n], invalid_indices).sum()
         result_tree = losses[tree_ind[~np.isin(tree_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/TreeEdit/{args.dataset}.npz", rmse=result_tree, invalid_count=invalid_tree)
+        np.savez(f"../results/smoothness/TreeEdit/{args.dataset}.npz", rmse=result_tree, invalid_count=invalid_tree, time=time_tree)
 
         # BED
         results_bed = np.zeros((number_of_runs, top_n))
         invalid_bed = np.zeros((number_of_runs))
+        times_bed = []
         for i in range(number_of_runs):
             x_indices = np.random.permutation(dataset.X.shape[0])[:num_points]
-            distances = BED([dataset.ground_truth], expressions2=expressions, normalize=False,
+            time_start = time.time()
+            distances = BED([dataset.ground_truth], expressions2=expressions,
                             x=dataset.X[x_indices], const_bounds=(-5, 5)).calculate_distances()
+            times_bed.append(time.time() - time_start)
             bed_ind = np.argsort(distances[0])
             invalid_bed[i] = np.isin(bed_ind[:top_n], invalid_indices).sum()
             results_bed[i, :] = losses[bed_ind[~np.isin(bed_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/BED/{args.dataset}.npz", rmse=results_bed, invalid_count=invalid_bed)
+        np.savez(f"../results/smoothness/BED/{args.dataset}.npz", rmse=results_bed, invalid_count=invalid_bed, time=np.array(times_bed))
 
         # Jaro
         jaro = []
+        time_start = time.time()
         for expr in expressions:
             jaro.append(Jaro.distance(dataset.ground_truth, expr))
+        time_jaro = time.time() - time_start
         jaro_ind = np.argsort(jaro)
         invalid_jaro = np.isin(jaro_ind[:top_n], invalid_indices).sum()
         result_jaro = losses[jaro_ind[~np.isin(jaro_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/Jaro/{args.dataset}.npz", rmse=result_jaro, invalid_count=invalid_jaro)
+        np.savez(f"../results/smoothness/Jaro/{args.dataset}.npz", rmse=result_jaro, invalid_count=invalid_jaro, time=time_jaro)
 
     else:
         if args.dataset == "all":
-            datasets = SRBenchmark.feynman("../data/feynman").list_datasets(verbose=False)
+            datasets = SR_benchmark.feynman("../data/feynman").list_datasets(verbose=False)
             ranks = np.zeros((4, top_n))
             invalid = np.zeros(4)
+            times = np.zeros(4)
             x = []
             y = []
             baseline = []
@@ -222,16 +235,16 @@ if __name__ == '__main__':
                 base_path = Path("../results/smoothness")
 
                 edit_obj = np.load(base_path / "Edit" / f"{dataset}.npz")
-                edit, edit_invalid = edit_obj["rmse"], edit_obj["invalid_count"]
+                edit, edit_invalid, edit_time = edit_obj["rmse"], edit_obj["invalid_count"], edit_obj["time"]
                 edit = aggregate_results(edit, args.aggregator)
                 tree_obj = np.load(base_path / "TreeEdit" / f"{dataset}.npz")
-                tree, tree_invalid = tree_obj["rmse"], tree_obj["invalid_count"]
+                tree, tree_invalid, tree_time = tree_obj["rmse"], tree_obj["invalid_count"], tree_obj["time"]
                 tree = aggregate_results(tree, args.aggregator)
                 jaro_obj = np.load(base_path / "Jaro" / f"{dataset}.npz")
-                jaro, jaro_invalid = jaro_obj["rmse"], jaro_obj["invalid_count"]
+                jaro, jaro_invalid, jaro_time = jaro_obj["rmse"], jaro_obj["invalid_count"], jaro_obj["time"]
                 jaro = aggregate_results(jaro, args.aggregator)
                 bed_obj = np.load(base_path / "BED" / f"{dataset}.npz")
-                bed, bed_invalid = bed_obj["rmse"], bed_obj["invalid_count"]
+                bed, bed_invalid, bed_time = bed_obj["rmse"], bed_obj["invalid_count"], bed_obj["time"]
                 bed = np.array([aggregate_results(bed[i], args.aggregator) for i in range(len(bed))])
                 bed = np.mean(bed, axis=0) if args.aggregator == "mean" else np.median(bed, axis=0)
 
@@ -239,6 +252,11 @@ if __name__ == '__main__':
                 invalid[1] += tree_invalid
                 invalid[2] += jaro_invalid
                 invalid[3] += np.mean(bed_invalid)
+
+                times[0] += edit_time
+                times[1] += tree_time
+                times[2] += jaro_time
+                times[3] += np.mean(bed_time)
 
                 sorted_indices = np.argsort(np.stack([edit, tree, jaro, bed]), axis=0)
                 for i in range(top_n):
@@ -255,10 +273,11 @@ if __name__ == '__main__':
                         elif ind == 3:
                             baseline.append("BED")
             invalid = invalid / len(datasets)
-            print("Edit invalid:", invalid[0])
-            print("Tree invalid:", invalid[1])
-            print("Jaro invalid:", invalid[2])
-            print("BED invalid:", invalid[3])
+            times = times / len(datasets)
+            print(f"Edit: invalid {invalid[0]}, time {times[0]}")
+            print(f"Tree: invalid {invalid[1]}, time {times[1]}")
+            print(f"Jaro: invalid {invalid[2]}, time {times[2]}")
+            print(f"BED: invalid {invalid[3]}, time {times[3]}")
 
 
             baseline_names = ["Edit", "Tree edit", "Jaro", "BED"]
@@ -283,33 +302,33 @@ if __name__ == '__main__':
 
         else:
             if args.dataset == "none":
-                all_datasets = SRBenchmark.feynman("../data/feynman").list_datasets(verbose=False)
+                all_datasets = SR_benchmark.feynman("../data/feynman").list_datasets(verbose=False)
                 ds = np.random.choice(all_datasets)
             else:
                 ds = args.dataset
 
-            dataset = SRBenchmark.feynman("../data/feynman").create_dataset(ds)
+            dataset = SR_benchmark.feynman("../data/feynman").create_dataset(ds)
             y_text = "Mean Aggregated RMSE" if args.aggregator == "mean" else "Median Aggregated RMSE"
 
             base_path = Path("../results/smoothness")
             optimal_obj = np.load(base_path / "Optimal" / f"{ds}.npz")
-            optimal, optimal_invalid = optimal_obj["rmse"], optimal_obj["invalid_count"]
+            optimal, optimal_invalid, optimal_time = optimal_obj["rmse"], optimal_obj["invalid_count"], optimal_obj["time"]
             optimal = aggregate_results(optimal, args.aggregator)
 
             edit_obj = np.load(base_path / "Edit" / f"{ds}.npz")
-            edit, edit_invalid = edit_obj["rmse"], edit_obj["invalid_count"]
+            edit, edit_invalid, edit_time = edit_obj["rmse"], edit_obj["invalid_count"], edit_obj["time"]
             edit = aggregate_results(edit, args.aggregator)
 
             tree_obj = np.load(base_path / "TreeEdit" / f"{ds}.npz")
-            tree, tree_invalid = tree_obj["rmse"], tree_obj["invalid_count"]
+            tree, tree_invalid, tree_time = tree_obj["rmse"], tree_obj["invalid_count"], tree_obj["time"]
             tree = aggregate_results(tree, args.aggregator)
 
             bed_obj = np.load(base_path / "BED" / f"{ds}.npz")
-            bed, bed_invalid = bed_obj["rmse"], bed_obj["invalid_count"]
+            bed, bed_invalid, bed_time = bed_obj["rmse"], bed_obj["invalid_count"], bed_obj["time"]
             bed = np.array([aggregate_results(bed[i], args.aggregator) for i in range(len(bed))])
 
             jaro_obj = np.load(base_path / "Jaro" / f"{ds}.npz")
-            jaro, jaro_invalid = jaro_obj["rmse"], jaro_obj["invalid_count"]
+            jaro, jaro_invalid, jaro_time = jaro_obj["rmse"], jaro_obj["invalid_count"], jaro_obj["time"]
             jaro = aggregate_results(jaro, args.aggregator)
 
             palette = {
@@ -323,7 +342,8 @@ if __name__ == '__main__':
             df_bed = build_df(optimal, edit, tree, jaro, bed, "BED", y_text)
             plot_metric(df_bed, "BED", ds, dataset, palette, y_text, save_name=f"../results/smoothness/figures/plot_{ds}_{args.aggregator}.png")
 
-            print("Edit invalid:", edit_invalid)
-            print("Tree invalid:", tree_invalid)
-            print("Jaro invalid:", jaro_invalid)
-            print("BED invalid:", np.mean(bed_invalid), np.std(bed_invalid))
+            print(f"Optimal invalid {optimal_invalid}, time {optimal_time}")
+            print(f"Edit invalid {edit_invalid}, time {edit_time}")
+            print(f"Tree invalid {tree_invalid}, time {tree_time}")
+            print(f"Jaro invalid {jaro_invalid}, time {jaro_time}")
+            print(f"BED invalid {np.mean(bed_invalid)} (+- {np.std(bed_invalid)}), time {np.mean(bed_time)} (+- {np.std(bed_time)})")
