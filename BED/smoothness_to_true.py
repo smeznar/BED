@@ -12,7 +12,7 @@ import zss
 import matplotlib.pyplot as plt
 from rapidfuzz.distance import Jaro
 
-from bed import BED, expr_to_zss
+from bed import BED, expr_to_zss, maximal_hausdorff
 
 grammar = """
 E -> E '+' F [0.2004]
@@ -51,7 +51,7 @@ def aggregate_results(losses, aggregator="mean"):
         raise ValueError(f"Unknown aggregator: {aggregator}")
 
 
-def build_df(optimal, edit, tree, jaro, main_curve, main_name, y_text, min_val=1.1e-4):
+def build_df(optimal, edit, tree, jaro, main_curve, maximal, hausdorff, main_name, y_text, min_val=1.1e-4):
     dfs = []
     dfs.append(pd.DataFrame({
         "Number of Closest Expressions": np.arange(1, len(optimal) + 1),
@@ -73,6 +73,18 @@ def build_df(optimal, edit, tree, jaro, main_curve, main_name, y_text, min_val=1
         y_text: np.clip(jaro, min_val, None),
         "Metric": "Jaro"
     }))
+    for row in maximal:
+        dfs.append(pd.DataFrame({
+            "Number of Closest Expressions": np.arange(1, len(row) + 1),
+            y_text: np.clip(row, min_val, None),
+            "Metric": "Maximal"
+        }))
+    for row in hausdorff:
+        dfs.append(pd.DataFrame({
+            "Number of Closest Expressions": np.arange(1, len(row) + 1),
+            y_text: np.clip(row, min_val, None),
+            "Metric": "Hausdorff"
+        }))
     for row in main_curve:
         dfs.append(pd.DataFrame({
             "Number of Closest Expressions": np.arange(1, len(row) + 1),
@@ -93,6 +105,14 @@ def plot_metric(df, main_name, ds, dataset, palette, y_text, save_name):
             color=palette[metric],
             linewidth=1.5
         )
+    for metric in ["Maximal", "Hausdorff"]:
+        subset = df[df["Metric"] == metric]
+        mean_vals = subset.groupby("Number of Closest Expressions")[y_text].mean()
+        ci_lower = subset.groupby("Number of Closest Expressions")[y_text].quantile(0.025)
+        ci_upper = subset.groupby("Number of Closest Expressions")[y_text].quantile(0.975)
+        plt.plot(mean_vals.index, mean_vals.values, color=palette[metric], label=metric, linewidth=2)
+        plt.fill_between(mean_vals.index, ci_lower.values, ci_upper.values, color=palette[metric], alpha=0.25)
+
     main_subset = df[df["Metric"] == main_name]
     mean_vals = main_subset.groupby("Number of Closest Expressions")[y_text].mean()
     ci_lower = main_subset.groupby("Number of Closest Expressions")[y_text].quantile(0.025)
@@ -104,7 +124,8 @@ def plot_metric(df, main_name, ds, dataset, palette, y_text, save_name):
     plt.ylim(max(1e-4, df[df["Metric"] == "Optimal"][y_text].min() * 0.95))
     plt.xlabel("Number of Closest Expressions")
     plt.ylabel(y_text)
-    expr_tex = ttt(dataset.ground_truth, dataset.symbol_library).to_latex(dataset.symbol_library)
+    expr_tex = (ttt(dataset.ground_truth, dataset.symbol_library).to_latex(dataset.symbol_library)
+                .replace("C", "c")).replace("X", "x")
     plt.title(f"\\textbf{{Expression ({ds}): }}\\boldmath {expr_tex}", fontsize=14)
     plt.legend(title="\\textbf{Measure}", frameon=True)
     plt.grid(False)
@@ -126,10 +147,10 @@ def plot_ranking_baselines(x_data, y_data, metric_names, baseline_labels, palett
     for metric in baseline_labels:
         subset = df[df["Metric"] == metric]
         mean_vals = subset.groupby("Number of Closest Expressions")["Rank Value"].mean()
-        ci_lower = np.clip(mean_vals - subset.groupby("Number of Closest Expressions")["Rank Value"].std(), 1, 4)
-        ci_upper = np.clip(mean_vals + subset.groupby("Number of Closest Expressions")["Rank Value"].std(), 1, 4)
+        ci_lower = np.clip(mean_vals - subset.groupby("Number of Closest Expressions")["Rank Value"].std(), 1, 6)
+        ci_upper = np.clip(mean_vals + subset.groupby("Number of Closest Expressions")["Rank Value"].std(), 1, 6)
         plt.plot(mean_vals.index, mean_vals.values, color=palette[metric], label=metric, linewidth=2)
-        plt.fill_between(mean_vals.index, ci_lower.values, ci_upper.values, color=palette[metric], alpha=0.25)
+        plt.fill_between(mean_vals.index, ci_lower.values, ci_upper.values, color=palette[metric], alpha=0.1)
 
     plt.xlabel("Number of Closest Expressions", fontsize=12)
     plt.ylabel(y_axis_label, fontsize=12)
@@ -137,7 +158,7 @@ def plot_ranking_baselines(x_data, y_data, metric_names, baseline_labels, palett
     plt.legend(title="\\textbf{Measure}", frameon=True)
     plt.grid(True, linestyle=':', alpha=0.7)
 
-    plt.ylim(0.9, 4.1)
+    plt.ylim(0.9, 6.1)
 
     plt.tight_layout()
     plt.savefig(f"../results/smoothness/figures/average_rank_{aggregator}.png", dpi=400, bbox_inches="tight")
@@ -148,7 +169,7 @@ if __name__ == '__main__':
                             description='A script for testing the smoothness of the error landscape')
     parser.add_argument("-dataset", type=str)
     parser.add_argument("-compute", action="store_true")
-    parser.add_argument("-aggregator", type=str, default="mean")
+    parser.add_argument("-aggregator", type=str, default="median")
     args = parser.parse_args()
     top_n = 250
 
@@ -171,7 +192,8 @@ if __name__ == '__main__':
 
         # Optimal
         distance = np.sort(losses)[:top_n]
-        np.savez(f"../results/smoothness/Optimal/{args.dataset}.npz", rmse=distance, invalid_count=0, time=time_optimal)
+        np.savez(f"../results/smoothness/Optimal/{args.dataset}.npz", rmse=distance,
+                 invalid_count=0, time=time_optimal)
 
         # Edit
         edit = []
@@ -182,7 +204,8 @@ if __name__ == '__main__':
         edit_ind = np.argsort(edit)
         invalid_edit = np.isin(edit_ind[:top_n], invalid_indices).sum()
         result_edit = losses[edit_ind[~np.isin(edit_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/Edit/{args.dataset}.npz", rmse=result_edit, invalid_count=invalid_edit, time=time_edit)
+        np.savez(f"../results/smoothness/Edit/{args.dataset}.npz", rmse=result_edit,
+                 invalid_count=invalid_edit, time=time_edit)
 
         # Tree edit
         tree = []
@@ -194,7 +217,8 @@ if __name__ == '__main__':
         tree_ind = np.argsort(tree)
         invalid_tree = np.isin(tree_ind[:top_n], invalid_indices).sum()
         result_tree = losses[tree_ind[~np.isin(tree_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/TreeEdit/{args.dataset}.npz", rmse=result_tree, invalid_count=invalid_tree, time=time_tree)
+        np.savez(f"../results/smoothness/TreeEdit/{args.dataset}.npz", rmse=result_tree,
+                 invalid_count=invalid_tree, time=time_tree)
 
         # BED
         results_bed = np.zeros((number_of_runs, top_n))
@@ -204,12 +228,45 @@ if __name__ == '__main__':
             x_indices = np.random.permutation(dataset.X.shape[0])[:num_points]
             time_start = time.time()
             distances = BED([dataset.ground_truth], expressions2=expressions,
-                            x=dataset.X[x_indices], const_bounds=(-5, 5)).calculate_distances()
+                            x=dataset.X[x_indices], const_params=(-5, 5)).calculate_distances()
             times_bed.append(time.time() - time_start)
             bed_ind = np.argsort(distances[0])
             invalid_bed[i] = np.isin(bed_ind[:top_n], invalid_indices).sum()
             results_bed[i, :] = losses[bed_ind[~np.isin(bed_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/BED/{args.dataset}.npz", rmse=results_bed, invalid_count=invalid_bed, time=np.array(times_bed))
+        np.savez(f"../results/smoothness/BED/{args.dataset}.npz", rmse=results_bed,
+                 invalid_count=invalid_bed, time=np.array(times_bed))
+
+        # maximal
+        results_maximal = np.zeros((number_of_runs, top_n))
+        invalid_maximal = np.zeros((number_of_runs))
+        times_maximal = []
+        for i in range(number_of_runs):
+            x_indices = np.random.permutation(dataset.X.shape[0])[:num_points]
+            time_start = time.time()
+            distances = maximal_hausdorff([dataset.ground_truth], expressions2=expressions,
+                                          x=dataset.X[x_indices], const_params=(-5, 5)).calculate_distances()
+            times_maximal.append(time.time() - time_start)
+            maximal_ind = np.argsort(distances[0])
+            invalid_maximal[i] = np.isin(maximal_ind[:top_n], invalid_indices).sum()
+            results_maximal[i, :] = losses[maximal_ind[~np.isin(maximal_ind, invalid_indices)][:top_n]]
+        np.savez(f"../results/smoothness/Maximal/{args.dataset}.npz", rmse=results_maximal,
+                 invalid_count=invalid_maximal, time=np.array(times_maximal))
+
+        # Hausdorff
+        results_hausdorff = np.zeros((number_of_runs, top_n))
+        invalid_hausdorff = np.zeros((number_of_runs))
+        times_hausdorff = []
+        for i in range(number_of_runs):
+            x_indices = np.random.permutation(dataset.X.shape[0])[:num_points]
+            time_start = time.time()
+            distances = maximal_hausdorff([dataset.ground_truth], expressions2=expressions,
+                                          x=dataset.X[x_indices], const_params=(-5, 5), hausdorff=True).calculate_distances()
+            times_hausdorff.append(time.time() - time_start)
+            hausdorff_ind = np.argsort(distances[0])
+            invalid_hausdorff[i] = np.isin(hausdorff_ind[:top_n], invalid_indices).sum()
+            results_hausdorff[i, :] = losses[hausdorff_ind[~np.isin(hausdorff_ind, invalid_indices)][:top_n]]
+        np.savez(f"../results/smoothness/Hausdorff/{args.dataset}.npz", rmse=results_hausdorff,
+                 invalid_count=invalid_hausdorff, time=np.array(times_hausdorff))
 
         # Jaro
         jaro = []
@@ -220,20 +277,24 @@ if __name__ == '__main__':
         jaro_ind = np.argsort(jaro)
         invalid_jaro = np.isin(jaro_ind[:top_n], invalid_indices).sum()
         result_jaro = losses[jaro_ind[~np.isin(jaro_ind, invalid_indices)][:top_n]]
-        np.savez(f"../results/smoothness/Jaro/{args.dataset}.npz", rmse=result_jaro, invalid_count=invalid_jaro, time=time_jaro)
+        np.savez(f"../results/smoothness/Jaro/{args.dataset}.npz", rmse=result_jaro,
+                 invalid_count=invalid_jaro, time=time_jaro)
 
     else:
         if args.dataset == "all":
             datasets = SR_benchmark.feynman("../data/feynman").list_datasets(verbose=False)
-            ranks = np.zeros((4, top_n))
-            invalid = np.zeros(4)
-            times = np.zeros(4)
+            ranks = np.zeros((6, top_n))
+            invalid = np.zeros(6)
+            times = np.zeros(6)
+            optimal_time = []
             x = []
             y = []
             baseline = []
             for dataset in datasets:
                 base_path = Path("../results/smoothness")
 
+                optimal_obj = np.load(base_path / "Optimal" / f"{dataset}.npz")
+                optimal, optimal_invalid, optimal_t = optimal_obj["rmse"], optimal_obj["invalid_count"], optimal_obj["time"]
                 edit_obj = np.load(base_path / "Edit" / f"{dataset}.npz")
                 edit, edit_invalid, edit_time = edit_obj["rmse"], edit_obj["invalid_count"], edit_obj["time"]
                 edit = aggregate_results(edit, args.aggregator)
@@ -247,20 +308,33 @@ if __name__ == '__main__':
                 bed, bed_invalid, bed_time = bed_obj["rmse"], bed_obj["invalid_count"], bed_obj["time"]
                 bed = np.array([aggregate_results(bed[i], args.aggregator) for i in range(len(bed))])
                 bed = np.mean(bed, axis=0) if args.aggregator == "mean" else np.median(bed, axis=0)
+                maximal_obj = np.load(base_path / "Maximal" / f"{dataset}.npz")
+                maximal, maximal_invalid, maximal_time = maximal_obj["rmse"], maximal_obj["invalid_count"], maximal_obj["time"]
+                maximal = np.array([aggregate_results(maximal[i], args.aggregator) for i in range(len(maximal))])
+                maximal = np.mean(maximal, axis=0) if args.aggregator == "mean" else np.median(maximal, axis=0)
+                hausdorff_obj = np.load(base_path / "Hausdorff" / f"{dataset}.npz")
+                hausdorff, hausdorff_invalid, hausdorff_time = hausdorff_obj["rmse"], hausdorff_obj["invalid_count"], hausdorff_obj["time"]
+                hausdorff = np.array([aggregate_results(hausdorff[i], args.aggregator) for i in range(len(hausdorff))])
+                hausdorff = np.mean(hausdorff, axis=0) if args.aggregator == "mean" else np.median(hausdorff, axis=0)
 
                 invalid[0] += edit_invalid
                 invalid[1] += tree_invalid
                 invalid[2] += jaro_invalid
                 invalid[3] += np.mean(bed_invalid)
+                invalid[4] += np.mean(maximal_invalid)
+                invalid[5] += np.mean(hausdorff_invalid)
 
                 times[0] += edit_time
                 times[1] += tree_time
                 times[2] += jaro_time
                 times[3] += np.mean(bed_time)
+                times[4] += np.mean(maximal_time)
+                times[5] += np.mean(hausdorff_time)
+                optimal_time.append(optimal_t)
 
-                sorted_indices = np.argsort(np.stack([edit, tree, jaro, bed]), axis=0)
+                sorted_indices = np.argsort(np.stack([edit, tree, jaro, bed, maximal, hausdorff]), axis=0)
                 for i in range(top_n):
-                    for j in range(4):
+                    for j in range(6):
                         x.append(i + 1)
                         y.append(j + 1)
                         ind = sorted_indices[j, i]
@@ -272,20 +346,28 @@ if __name__ == '__main__':
                             baseline.append("Jaro")
                         elif ind == 3:
                             baseline.append("BED")
+                        elif ind == 4:
+                            baseline.append("Maximal")
+                        elif ind == 5:
+                            baseline.append("Hausdorff")
             invalid = invalid / len(datasets)
             times = times / len(datasets)
-            print(f"Edit: invalid {invalid[0]}, time {times[0]}")
-            print(f"Tree: invalid {invalid[1]}, time {times[1]}")
-            print(f"Jaro: invalid {invalid[2]}, time {times[2]}")
-            print(f"BED: invalid {invalid[3]}, time {times[3]}")
+            print(f"Edit:\t\t time {times[0]}, invalid {invalid[0]}")
+            print(f"Tree:\t\t time {times[1]}, invalid {invalid[1]}")
+            print(f"Jaro:\t\t time {times[2]}, invalid {invalid[2]}")
+            print(f"BED:\t\t time {times[3]}, invalid {invalid[3]}")
+            print(f"maximal:\t\t time {times[4]}, invalid {invalid[4]}")
+            print(f"Hausdorff:\t time {times[5]}, invalid {invalid[5]}")
+            print(f"Optimal:\t time {np.mean(optimal_time)}")
 
-
-            baseline_names = ["Edit", "Tree edit", "Jaro", "BED"]
+            baseline_names = ["Edit", "Tree edit", "Jaro", "BED", "Maximal", "Hausdorff"]
             custom_palette = {
-                "Edit": "#D55E00",
-                "Tree edit": "#0072B2",
-                "BED": "#009E73",
-                "Jaro": "#F0E442"
+                "Edit": "#E69F00",
+                "Tree edit": "#D55E00",
+                "Jaro": "#009E73",
+                "BED": "#CC79A7",
+                "Maximal": "#56B4E9",
+                "Hausdorff": "#0072B2"
             }
 
             plot_ranking_baselines(
@@ -327,19 +409,34 @@ if __name__ == '__main__':
             bed, bed_invalid, bed_time = bed_obj["rmse"], bed_obj["invalid_count"], bed_obj["time"]
             bed = np.array([aggregate_results(bed[i], args.aggregator) for i in range(len(bed))])
 
+            maximal_obj = np.load(base_path / "Maximal" / f"{ds}.npz")
+            maximal, maximal_invalid, maximal_time = maximal_obj["rmse"], maximal_obj["invalid_count"], maximal_obj["time"]
+            maximal = np.array([aggregate_results(maximal[i], args.aggregator) for i in range(len(maximal))])
+
+            hausdorff_obj = np.load(base_path / "Hausdorff" / f"{ds}.npz")
+            hausdorff, hausdorff_invalid, hausdorff_time = hausdorff_obj["rmse"], hausdorff_obj["invalid_count"], hausdorff_obj["time"]
+            hausdorff = np.array([aggregate_results(hausdorff[i], args.aggregator) for i in range(len(hausdorff))])
+
             jaro_obj = np.load(base_path / "Jaro" / f"{ds}.npz")
             jaro, jaro_invalid, jaro_time = jaro_obj["rmse"], jaro_obj["invalid_count"], jaro_obj["time"]
             jaro = aggregate_results(jaro, args.aggregator)
 
             palette = {
+                # "Optimal": "#000000",
+                # "Edit": "#D55E00",
+                # "Tree edit": "#0072B2",
+                # "BED": "#009E73",
+                # "Jaro": "#F0E442",
                 "Optimal": "#000000",
-                "Edit": "#D55E00",
-                "Tree edit": "#0072B2",
-                "BED": "#009E73",
-                "Jaro": "#F0E442"
+                "Edit": "#E69F00",
+                "Tree edit": "#D55E00",
+                "Jaro": "#009E73",
+                "BED": "#CC79A7",
+                "Maximal": "#56B4E9",
+                "Hausdorff": "#0072B2"
             }
 
-            df_bed = build_df(optimal, edit, tree, jaro, bed, "BED", y_text)
+            df_bed = build_df(optimal, edit, tree, jaro, bed, maximal, hausdorff, "BED", y_text)
             plot_metric(df_bed, "BED", ds, dataset, palette, y_text, save_name=f"../results/smoothness/figures/plot_{ds}_{args.aggregator}.png")
 
             print(f"Optimal invalid {optimal_invalid}, time {optimal_time}")
@@ -347,3 +444,5 @@ if __name__ == '__main__':
             print(f"Tree invalid {tree_invalid}, time {tree_time}")
             print(f"Jaro invalid {jaro_invalid}, time {jaro_time}")
             print(f"BED invalid {np.mean(bed_invalid)} (+- {np.std(bed_invalid)}), time {np.mean(bed_time)} (+- {np.std(bed_time)})")
+            print(f"maximal invalid {np.mean(maximal_invalid)} (+- {np.std(maximal_invalid)}), time {np.mean(maximal_time)} (+- {np.std(maximal_time)})")
+            print(f"Hausdorff invalid {np.mean(hausdorff_invalid)} (+- {np.std(hausdorff_invalid)}), time {np.mean(hausdorff_time)} (+- {np.std(hausdorff_time)})")

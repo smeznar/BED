@@ -12,7 +12,7 @@ import matplotlib as mpl
 from rapidfuzz.distance import Jaro
 from matplotlib.patches import Polygon
 
-from bed import BED, expr_to_zss
+from bed import BED, expr_to_zss, maximal_hausdorff
 
 def same_tree(expr_tree1: Node, expr_tree2: Node) -> bool:
     if expr_tree1.symbol == expr_tree2.symbol and expr_tree1.symbol != "C":
@@ -20,6 +20,15 @@ def same_tree(expr_tree1: Node, expr_tree2: Node) -> bool:
             return False
         if expr_tree1.right is not None and not same_tree(expr_tree1.right, expr_tree2.right):
             return False
+        return True
+    return False
+
+def contains_free_parameters(expr_tree: Node) -> bool:
+    if expr_tree.symbol == "C":
+        return True
+    if expr_tree.left is not None and contains_free_parameters(expr_tree.left):
+        return True
+    if expr_tree.right is not None and contains_free_parameters(expr_tree.right):
         return True
     return False
 
@@ -48,8 +57,12 @@ def pow_expansion(expr_tree: Node, power: int) -> Node:
     if power < 2:
         raise Exception("Only integer powers of 2 or more are allowed")
     elif power == 2:
+        if contains_free_parameters(expr_tree.left):
+            return expr_tree
         return Node("*", expr_tree.left, expr_tree.left)
     else:
+        if contains_free_parameters(expr_tree.left):
+            return expr_tree
         if np.random.choice([True, False]):
             if np.random.choice([True, False]):
                 return Node("*", pow_expansion(expr_tree, power-1), expr_tree.left)
@@ -84,6 +97,8 @@ def combine_log(expr_tree: Node) -> Node:
 
 def distributivity_mul(expr_tree: Node) -> Node:
     if expr_tree.left.symbol in ["+", "-"] and expr_tree.right.symbol in ["+", "-"]:
+        if contains_free_parameters(expr_tree):
+            return expr_tree
         rn = numpy.random.random()
         if rn < 0.4:
             last_plus = expr_tree.left.symbol == expr_tree.right.symbol
@@ -99,9 +114,13 @@ def distributivity_mul(expr_tree: Node) -> Node:
             return Node(expr_tree.right.symbol, left=Node(expr_tree.symbol, expr_tree.right.left, expr_tree.left),
                         right=Node(expr_tree.symbol, expr_tree.right.right, expr_tree.left))
     if expr_tree.left.symbol in ["+", "-"]:
+        if contains_free_parameters(expr_tree.right):
+            return expr_tree
         return Node(expr_tree.left.symbol, left=Node(expr_tree.symbol, expr_tree.right, expr_tree.left.left),
                     right=Node(expr_tree.symbol, expr_tree.right, expr_tree.left.right))
     if expr_tree.right.symbol in ["+", "-"]:
+        if contains_free_parameters(expr_tree.left):
+            return expr_tree
         return Node(expr_tree.right.symbol, left=Node(expr_tree.symbol, expr_tree.right.left, expr_tree.left),
                     right=Node(expr_tree.symbol, expr_tree.right.right, expr_tree.left))
     return expr_tree
@@ -279,7 +298,7 @@ def show_MDS_clusters(distance_matrix, colors, markers, exprs, num, baseline, pr
                 edgecolors='black',
                 linewidths=0.6,
                 alpha=0.85,
-                label=group_label
+                label=group_label.replace("C", "c").replace("X", "x")
             )
             seen_labels.add(group_label)
 
@@ -379,7 +398,7 @@ if __name__ == '__main__':
     """
     num_equivalent = 10 # 1 for graphical abstract
     sl = SymbolLibrary.default_symbols(2)
-    num_runs = 10
+    num_runs = 1
     show_MDS_plots = False # For MDS plots this should be True and num_runs = 1
     verbose = False
 
@@ -414,10 +433,11 @@ if __name__ == '__main__':
     ]
 
     # Uncomment next line for clustering plots in the graphical abstract
-    # graphical_abstract_figure(eq_classes)
+    graphical_abstract_figure(eq_classes)
 
     results = {"BED": [],"BED features": [], "Edit distance": [], "Edit features": [], "Jaro distance": [],
-               "JARO features": [], "Tree edit distance": [], "Tree edit features": []}
+               "JARO features": [], "Tree edit distance": [], "Tree edit features": [], "maximal distance": [],
+               "maximal features": [], "Hausdorff distance": [], "Hausdorff features": []}
 
     for run_seed in range(num_runs):
         print(f"RUN {run_seed+1}/{num_runs}")
@@ -478,6 +498,81 @@ if __name__ == '__main__':
         if verbose:
             print()
             print("Normalized BED as features")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+
+        maximal = maximal_hausdorff(all_expressions, [[1, 5], [1, 5]], seed=run_seed).calculate_distances()
+        maximal = np.log10(maximal+1)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(maximal)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(maximal, clusters, metric="precomputed")
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["maximal distance"].append([ari, silhouette, v_measure, fowlkes_mallows])
+
+        if verbose:
+            print()
+            print("maximal")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        if show_MDS_plots:
+            show_MDS_clusters(maximal, colors, markers, labels, num_equivalent, "Maximal", precomputed=True)
+
+        normalizer = sklearn.preprocessing.Normalizer()
+        maximal = normalizer.fit_transform(maximal)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(maximal)
+        np.fill_diagonal(maximal, 0)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(maximal, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["maximal features"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Normalized maximal as features")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        hausdorf = maximal_hausdorff(all_expressions, [[1, 5], [1, 5]], seed=run_seed, hausdorff=True).calculate_distances()
+        hausdorf = np.log10(hausdorf+1)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), metric="precomputed", linkage="single").fit_predict(hausdorf)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(hausdorf, clusters, metric="precomputed")
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["Hausdorff distance"].append([ari, silhouette, v_measure, fowlkes_mallows])
+
+        if verbose:
+            print()
+            print("hausdorf")
+            print("ARI: ", ari)
+            print("Silhouette: ", silhouette)
+            print("V-measure: ", v_measure)
+            print("Fowlkes-Mallows: ", fowlkes_mallows)
+
+        if show_MDS_plots:
+            show_MDS_clusters(hausdorf, colors, markers, labels, num_equivalent, "Hausdorff", precomputed=True)
+
+        normalizer = sklearn.preprocessing.Normalizer()
+        hausdorf = normalizer.fit_transform(hausdorf)
+        clusters = AgglomerativeClustering(n_clusters=len(expressions), linkage="single").fit_predict(hausdorf)
+        np.fill_diagonal(hausdorf, 0)
+        ari = adjusted_rand_score(clusters, np.array(ground_truth))
+        silhouette = silhouette_score(hausdorf, clusters)
+        v_measure = v_measure_score(clusters, np.array(ground_truth))
+        fowlkes_mallows = fowlkes_mallows_score(clusters, np.array(ground_truth))
+        results["Hausdorff features"].append([ari, silhouette, v_measure, fowlkes_mallows])
+        if verbose:
+            print()
+            print("Normalized hausdorf as features")
             print("ARI: ", ari)
             print("Silhouette: ", silhouette)
             print("V-measure: ", v_measure)
@@ -613,3 +708,7 @@ if __name__ == '__main__':
     print_results("JARO-cf", results["JARO features"])
     print_results("Tree edit distance", results["Tree edit distance"])
     print_results("Tree-cf", results["Tree edit features"])
+    print_results("maximal", results["maximal distance"])
+    print_results("maximal-cf", results["maximal features"])
+    print_results("Hausdorff", results["Hausdorff distance"])
+    print_results("Hausdorff-cf", results["Hausdorff features"])

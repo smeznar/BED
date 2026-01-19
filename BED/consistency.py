@@ -111,33 +111,42 @@ if __name__ == '__main__':
     parser.add_argument("-figure_path", type=str)
     parser.add_argument("-random", action="store_true")
     parser.add_argument("-stringency", default="run") # all: Same X across all runs; run: same X for a run; pair: new X for each pair
+    parser.add_argument("-param_dist", default="uniform")
     args = parser.parse_args()
 
     if (args.seed is not None and args.num_points is not None and args.num_const is not None
             and args.expr_path is not None and args.num_vars is not None):
         expressions = read_expressions_txt(args.expr_path)
-        if args.stringency == "all":
-            np.random.seed(0)
-            x_bounds = [(1, 5) for i in range(args.num_vars)]
-            interval_length = np.array([ub - lb for (lb, ub) in x_bounds])
-            lower_bound = np.array([lb for (lb, ub) in x_bounds])
-            lho = LatinHypercube(len(x_bounds), optimization="random-cd", seed=0)
-            X = lho.random(args.num_points) * interval_length + lower_bound
-            start_time = time.time()
-            bed = BED(expressions, x=X, const_bounds=(1, 5), points_sampled=args.num_points,
-                      consts_sampled=args.num_const, seed=args.seed)
-        elif args.stringency == "run":
-            start_time = time.time()
-            bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
-                      points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed)
+        if args.param_dist == "uniform":
+            filename = f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npz"
+            if args.stringency == "all":
+                np.random.seed(0)
+                x_bounds = [(1, 5) for i in range(args.num_vars)]
+                interval_length = np.array([ub - lb for (lb, ub) in x_bounds])
+                lower_bound = np.array([lb for (lb, ub) in x_bounds])
+                lho = LatinHypercube(len(x_bounds), optimization="random-cd", seed=0)
+                X = lho.random(args.num_points) * interval_length + lower_bound
+                start_time = time.time()
+                bed = BED(expressions, x=X, const_params=(1, 5), points_sampled=args.num_points,
+                          consts_sampled=args.num_const, seed=args.seed)
+            elif args.stringency == "run":
+                start_time = time.time()
+                bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
+                          points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed)
+            else:
+                start_time = time.time()
+                bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
+                          points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed,
+                          randomized=True)
         else:
+            filename = f"../results/consistency/distance_matrices_gauss/dm_{args.num_points}_{args.num_const}_{args.seed}.npz"
             start_time = time.time()
-            bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (1, 5),
+            bed = BED(expressions, [(1, 5) for i in range(args.num_vars)], (2.5, 0.8906),
                       points_sampled=args.num_points, consts_sampled=args.num_const, seed=args.seed,
-                      randomized=True)
+                      const_dist=args.param_dist)
         dm = bed.calculate_distances()
         time_taken = time.time() - start_time
-        np.savez(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{args.num_points}_{args.num_const}_{args.seed}_{args.num_vars}.npz", dm=dm, time=time_taken)
+        np.savez(filename, dm=dm, time=time_taken)
 
     elif args.figure_path is not None and args.num_vars is not None:
         x = []
@@ -146,7 +155,10 @@ if __name__ == '__main__':
         t = []
         for num_points in [4, 8, 16, 32, 64, 128]:
             for num_const in [4, 8, 16, 32, 64, 128]:
-                files = glob.glob(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{num_points}_{num_const}_*_{args.num_vars}.npz")
+                if args.param_dist == "uniform":
+                    files = glob.glob(f"../results/consistency/distance_matrices_{args.num_vars}_{args.stringency}/dm_{num_points}_{num_const}_*_{args.num_vars}.npz")
+                else:
+                    files = glob.glob(f"../results/consistency/distance_matrices_gauss/dm_{num_points}_{num_const}_*.npz")
                 matrices = []
                 time_taken = []
                 if len(files) == 0:
@@ -182,12 +194,46 @@ if __name__ == '__main__':
         plt.savefig(args.figure_path)
 
         plt.clf()
-        sd_mat = (pd.DataFrame(data={"$|\\boldsymbol{X}|$": x, "$|\\mathbf{C}|$": y, "time": t})
-                  .pivot(index="$|\\boldsymbol{X}|$", columns="$|\\mathbf{C}|$", values="time", ))
-        sd_mat.sort_index(level=0, ascending=False, inplace=True)
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.size": 14,
+            "figure.dpi": 400
+        })
 
-        sns.heatmap(sd_mat, annot=True, cmap="coolwarm", linewidth=.5, vmin=0.0, fmt=".1f")
+        df = pd.DataFrame(data={"$|\\boldsymbol{X}|$": x, "$|\\mathbf{C}|$": y, "time": t})
 
-        plt.title("\\textbf{Time taken to calculate a single run}")
+        c_values = sorted(df["$|\\mathbf{C}|$"].unique())
+        colors = plt.cm.viridis(np.linspace(0, 1, len(c_values)))
+
+        plt.figure(figsize=(8, 6))
+        plt.style.use('seaborn-v0_8-whitegrid')
+
+        for i, c_val in enumerate(c_values):
+            subset = df[df["$|\\mathbf{C}|$"] == c_val].sort_values("$|\\boldsymbol{X}|$")
+            print(c_val, subset)
+            plt.plot(
+                subset["$|\\boldsymbol{X}|$"],
+                subset["time"],
+                label=f"${c_val}$",
+                color=colors[i],
+                linewidth=1.5,
+                marker='o',
+                markersize=4
+            )
+
+        plt.xscale("log", base=2)
+
+        x_ticks = sorted(df["$|\\boldsymbol{X}|$"].unique())
+        plt.xticks(x_ticks, labels=[str(int(val)) for val in x_ticks])
+
+        plt.xlabel(r"$|\boldsymbol{X}|$")
+        plt.ylabel("Time (seconds)")
+        plt.title(r"\textbf{Time Taken to Calculate a Single Run}", fontsize=14)
+
+        plt.legend(title="$|\\mathbf{C}|$", frameon=True, loc="upper left")
+        plt.grid(False)#, which="both", ls="-", alpha=0.5)
+
         plt.tight_layout()
-        plt.savefig(args.figure_path.replace(".png", "_time.png"))
+        plt.savefig(args.figure_path.replace(".png", "_time_consistent.png"),
+                    dpi=400, bbox_inches="tight")
